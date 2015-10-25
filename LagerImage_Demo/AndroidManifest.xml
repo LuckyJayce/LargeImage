@@ -24,6 +24,7 @@
         </activity>
         <activity android:name=".LongImageActivity" />
         <activity android:name=".LagerImageActivity" />
+          <activity android:name=".HActivity" />
     </application>
 
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
