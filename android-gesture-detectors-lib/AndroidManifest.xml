@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.almeros.android.multitouch" >
+
+    <uses-configuration android:reqTouchScreen="finger" />
+
+    <uses-sdk android:minSdkVersion="9" />
+
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="true" />
+    <uses-feature
+        android:name="android.hardware.touchscreen.multitouch"
+        android:required="true" />
+
+    <application />
+
+</manifest>
