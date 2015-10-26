@@ -274,59 +274,57 @@ public class ImageManager {
 					iterator.remove();
 				}
 			}
-			if (currentCacheData == null) {
-				currentCacheData = new CacheData(scale, new ConcurrentHashMap<Position, Bitmap>());
-				for (int row = startRow; row <= endRow; row++) {
-					for (int col = startCol; col <= endCol; col++) {
-						Position position = new Position(row, col);
-						needShowPositions.add(position);
-						handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
-					}
-				}
-				/**
-				 * <pre>
-				 * #########  1
-				 * #       #
-				 * #       #
-				 * #########
-				 * 
-				 * <pre>
-				 */
-
-				// 上 #########
-				for (int row = cacheStartRow; row < startRow; row++) {
-					for (int col = cacheStartCol; col <= cacheEndCol; col++) {
-						Position position = new Position(row, col);
-						handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
-					}
-				}
-				// 下 #########
-				for (int row = endRow + 1; row < cacheEndRow; row++) {
-					for (int col = cacheStartCol; col <= cacheEndCol; col++) {
-						Position position = new Position(row, col);
-						handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
-					}
-				}
-				// # 左
-				// #
-				for (int row = startRow; row < endRow; row++) {
-					for (int col = cacheStartCol; col < startCol; col++) {
-						Position position = new Position(row, col);
-						handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
-					}
-				}
-				// # 右
-				// #
-				for (int row = startRow; row < endRow; row++) {
-					for (int col = endRow + 1; col < cacheEndRow; col++) {
-						Position position = new Position(row, col);
-						handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
-					}
+		}
+		if (currentCacheData == null) {
+			currentCacheData = new CacheData(scale, new ConcurrentHashMap<Position, Bitmap>());
+			for (int row = startRow; row <= endRow; row++) {
+				for (int col = startCol; col <= endCol; col++) {
+					Position position = new Position(row, col);
+					needShowPositions.add(position);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
 				}
 			}
-		}
+			/**
+			 * <pre>
+			 * #########  1
+			 * #       #
+			 * #       #
+			 * #########
+			 * 
+			 * <pre>
+			 */
 
-		if (needShowPositions.isEmpty()) {
+			// 上 #########
+			for (int row = cacheStartRow; row < startRow; row++) {
+				for (int col = cacheStartCol; col <= cacheEndCol; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// 下 #########
+			for (int row = endRow + 1; row < cacheEndRow; row++) {
+				for (int col = cacheStartCol; col <= cacheEndCol; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// # 左
+			// #
+			for (int row = startRow; row < endRow; row++) {
+				for (int col = cacheStartCol; col < startCol; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// # 右
+			// #
+			for (int row = startRow; row < endRow; row++) {
+				for (int col = endRow + 1; col < cacheEndRow; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+		} else {
 			/*
 			 * 找出该scale所有存在的切图，和记录所有不存在的position
 			 */
@@ -381,7 +379,6 @@ public class ImageManager {
 					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
 				}
 			}
-
 			currentCacheData.images.keySet().retainAll(usePositions);
 		}
 
@@ -654,16 +651,15 @@ public class ImageManager {
 	}
 
 	public void load(InputStream inputStream) {
-		this.factory = new InputStreamBitmapRegionDecoderFactory(inputStream);
-		load(factory);
+		load(new InputStreamBitmapRegionDecoderFactory(inputStream));
 	}
 
 	public void load(String filePath) {
-		this.factory = new PathBitmapRegionDecoderFactory(filePath);
-		load(factory);
+		load(new PathBitmapRegionDecoderFactory(filePath));
 	}
 
 	private void load(BitmapRegionDecoderFactory factory) {
+		this.factory = factory;
 		currentCacheData = null;
 		cacheDatas.clear();
 		imageWidth = 0;
