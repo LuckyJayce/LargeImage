@@ -117,7 +117,7 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 	protected void onUpdateWindow(Rect visiableRect) {
 		preInvalidateTime = SystemClock.uptimeMillis();
 		runnable = null;
-		invalidate(getVisiableRect());
+		invalidate(getCacheVisiableRect());
 	}
 
 	private volatile long preInvalidateTime;
@@ -142,7 +142,7 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 					preInvalidateTime = SystemClock.uptimeMillis();
 					runnable = null;
 					Log.d("eeee", "preInvalidateTime:" + preInvalidateTime);
-					invalidate(getVisiableRect());
+					invalidate(getCacheVisiableRect());
 				}
 			}, LOOP_TIME - deltaTime);
 		} else {
@@ -151,7 +151,7 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 				preInvalidateTime = SystemClock.uptimeMillis();
 				runnable = null;
 				Log.d("eeee", "preInvalidateTime:" + preInvalidateTime);
-				invalidate(getVisiableRect());
+				invalidate(getCacheVisiableRect());
 			} else {
 				LargeImageView.this.post(runnable = new Runnable() {
 
@@ -160,7 +160,7 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 						preInvalidateTime = SystemClock.uptimeMillis();
 						runnable = null;
 						Log.d("eeee", "preInvalidateTime:" + preInvalidateTime);
-						invalidate(getVisiableRect());
+						invalidate(getCacheVisiableRect());
 					}
 				});
 			}
@@ -178,7 +178,7 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 
 		long startTime = SystemClock.uptimeMillis();
 
-		Rect visiableRect = getVisiableRect();
+		Rect visiableRect = getCacheVisiableRect();
 
 		Log.d("countTime", "getVisiableRect " + (SystemClock.uptimeMillis() - startTime));
 		startTime = SystemClock.uptimeMillis();
@@ -234,6 +234,21 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 		startTime = SystemClock.uptimeMillis();
 
 		canvas.restoreToCount(saveCount);
+	}
+
+	private Rect getCacheVisiableRect() {
+		Rect visiableRect = getVisiableRect();
+		int cache = dip2px(getContext(), 100);
+		visiableRect.right += cache;
+		visiableRect.top -= cache;
+		visiableRect.left -= cache;
+		visiableRect.bottom += cache;
+		return visiableRect;
+	}
+
+	public static int dip2px(Context context, float dipValue) {
+		final float scale = context.getResources().getDisplayMetrics().density;
+		return (int) (dipValue * scale + 0.5f);
 	}
 
 	@Override
