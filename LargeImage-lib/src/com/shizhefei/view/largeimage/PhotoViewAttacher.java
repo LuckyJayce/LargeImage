@@ -51,7 +51,7 @@ public class PhotoViewAttacher<PHOTOVIEW extends View & IPhotoView> implements O
 	public boolean onTouch(View v, MotionEvent event) {
 		mScaleDetector.onTouchEvent(event);
 		mRotateDetector.onTouchEvent(event);
-		mMoveDetector.onTouchEvent(event);
+		// mMoveDetector.onTouchEvent(event);
 		gestureDetector.onTouchEvent(event);
 
 		// float scaledImageCenterX = (photoview.getImageWidth() * mScaleFactor)
@@ -71,16 +71,20 @@ public class PhotoViewAttacher<PHOTOVIEW extends View & IPhotoView> implements O
 		//
 		// photoview.setScale(mScaleFactor, mFocusX, mFocusY);
 		// } else {// 放大
-//		float width = photoview.getWidth() * photoview.getScale().scale;
-//		float cWidth = photoview.getWidth() * mScaleFactor;
-//
-//		float height = 1.0f * photoview.getImageHeight() * photoview.getWidth() / photoview.getImageWidth() * photoview.getScale().scale;
-//		float cHeight = 1.0f * photoview.getImageHeight() * photoview.getWidth() / photoview.getImageWidth() * mScaleFactor;
-//
-//		photoview.setScale(mScaleFactor, (cWidth - width) / 2, (cHeight - height) / 2);
+		// float width = photoview.getWidth() * photoview.getScale().scale;
+		// float cWidth = photoview.getWidth() * mScaleFactor;
+		//
+		// float height = 1.0f * photoview.getImageHeight() *
+		// photoview.getWidth() / photoview.getImageWidth() *
+		// photoview.getScale().scale;
+		// float cHeight = 1.0f * photoview.getImageHeight() *
+		// photoview.getWidth() / photoview.getImageWidth() * mScaleFactor;
+		//
+		// photoview.setScale(mScaleFactor, (cWidth - width) / 2, (cHeight -
+		// height) / 2);
 		// }
 
-		 photoview.setScale(mScaleFactor, mFocusX, mFocusY);
+		photoview.setScale(mScaleFactor, mFocusX, mFocusY);
 		return true; // indicate event was handled
 	}
 
@@ -105,6 +109,22 @@ public class PhotoViewAttacher<PHOTOVIEW extends View & IPhotoView> implements O
 			mFocusY = 0;
 			return true;
 		};
+
+//		@Override
+//		public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+//			mFocusX -= velocityX;
+//			mFocusY -= velocityY;
+//			photoview.setScale(mScaleFactor, mFocusX, mFocusY);
+//			return false;
+//		};
+//		
+		public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+			mFocusX += distanceX;
+			mFocusY += distanceY;
+			photoview.setScale(mScaleFactor, mFocusX, mFocusY);
+			return false;
+		};
+		
 
 		@Override
 		public boolean onSingleTapUp(MotionEvent e) {

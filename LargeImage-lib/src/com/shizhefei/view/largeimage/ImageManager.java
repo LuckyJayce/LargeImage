@@ -228,8 +228,11 @@ public class ImageManager {
 			try {
 				int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
 				int screenHeight = context.getResources().getDisplayMetrics().heightPixels;
-				cacheImageScale = (int) Math.sqrt(imageWidth * imageHeight / (screenWidth / 2) / (screenHeight / 2));
-				cacheImageScale = getNearScale(cacheImageScale);
+				int s = (int) Math.sqrt(imageWidth * imageHeight / (screenWidth / 2) / (screenHeight / 2));
+				cacheImageScale = getNearScale(s);
+				if (cacheImageScale < s) {
+					cacheImageScale *= 2;
+				}
 				Options decodingOptions = new Options();
 				decodingOptions.inSampleSize = cacheImageScale;
 				cacheImageData = mDecoder.decodeRegion(new Rect(0, 0, imageWidth, imageHeight), decodingOptions);
