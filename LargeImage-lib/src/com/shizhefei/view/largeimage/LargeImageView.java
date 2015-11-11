@@ -194,7 +194,7 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 		}
 
 		int saveCount = canvas.save();
-		canvas.clipRect(visiableRect);
+//		canvas.clipRect(visiableRect);
 
 		Log.d("countTime", "clipRect " + (SystemClock.uptimeMillis() - startTime));
 		startTime = SystemClock.uptimeMillis();
@@ -238,11 +238,11 @@ public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoa
 
 	private Rect getCacheVisiableRect() {
 		Rect visiableRect = getVisiableRect();
-		int cache = dip2px(getContext(), 100);
-		visiableRect.right += cache;
-		visiableRect.top -= cache;
-		visiableRect.left -= cache;
-		visiableRect.bottom += cache;
+//		int cache = dip2px(getContext(), 100);
+//		visiableRect.right += cache;
+//		visiableRect.top -= cache;
+//		visiableRect.left -= cache;
+//		visiableRect.bottom += cache;
 		return visiableRect;
 	}
 
