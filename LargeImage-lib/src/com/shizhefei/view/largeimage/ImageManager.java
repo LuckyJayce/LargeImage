@@ -26,7 +26,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
 import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -36,6 +38,7 @@ import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.util.Log;
@@ -43,22 +46,15 @@ import android.util.Log;
 public class ImageManager {
 
 	private final int BASE_BLOCKSIZE;
-	/** 保存显示区域中的各个缩放的图片切换 */
-	private List<CacheData> cacheDatas = new LinkedList<CacheData>();
-
-	/** 保存预先显示的整张图 */
-	private Bitmap cacheImageData;
-	/** 保存整张图图片缩放级别 */
-	private int cacheImageScale;
 
 	private Context context;
 
 	public ImageManager(Context context) {
 		super();
 		this.context = context;
-		int width = context.getResources().getDisplayMetrics().widthPixels;
-		width = getNearScale(width);
-		BASE_BLOCKSIZE = width / 2;
+		int width = context.getResources().getDisplayMetrics().widthPixels / 2;
+		// width = getNearScale(width);
+		BASE_BLOCKSIZE = width;
 		Log.d("cccc", "BASE_BLOCKSIZE: " + BASE_BLOCKSIZE);
 	}
 
@@ -72,75 +68,10 @@ public class ImageManager {
 
 		handlerThread = new HandlerThread("111");
 		handlerThread.start();
-		handler = new Handler(handlerThread.getLooper()) {
-			@Override
-			public void handleMessage(Message msg) {
-				super.handleMessage(msg);
-				if (msg.what == MESSAGE_LOAD) {
-					if (mDecoder != null) {
-						try {
-							mDecoder.recycle();
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-						mDecoder = null;
-					}
-					if (factory != null) {
-						try {
-							mDecoder = factory.made();
-							imageWidth = mDecoder.getWidth();
-							imageHeight = mDecoder.getHeight();
-							if (onImageLoadListenner != null) {
-								onImageLoadListenner.onImageLoadFinished(imageWidth, imageHeight);
-							}
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-					}
-				} else {
-					MessageData data = (MessageData) msg.obj;
-					CacheData cacheData = currentCacheData;
-					if (cacheData == null || cacheData.scale != data.scale) {
-						return;
-					}
-					Position position = data.position;
-					Bitmap imageData = cacheData.images.get(position);
-					// 不存在才需要加载，（这里避免之前的任务重复被执行）
-					if (imageData == null) {
-						int imageBlockSize = BASE_BLOCKSIZE * data.scale;
-						int left = imageBlockSize * position.col;
-						int right = left + imageBlockSize;
-						int top = imageBlockSize * position.row;
-						int bottom = top + imageBlockSize;
-						if (right > imageWidth) {
-							right = imageWidth;
-						}
-						if (bottom > imageHeight) {
-							bottom = imageHeight;
-						}
-						Rect clipImageRect = new Rect(left, top, right, bottom);
-						Options decodingOptions = new Options();
-						decodingOptions.inSampleSize = data.scale;
-						// 加载clipRect的区域的图片块
-						try {
-							imageData = mDecoder.decodeRegion(clipImageRect, decodingOptions);
-							if (imageData != null) {
-								cacheData.images.put(position, imageData);
-								if (onImageLoadListenner != null) {
-									onImageLoadListenner.onBlockImageLoadFinished();
-								}
-							}
-						} catch (Exception e) {
-							Log.d("nnnn", position.toString() + " " + clipImageRect.toShortString());
-							e.printStackTrace();
-						}
-					}
-				}
-			}
-		};
-
-		if (factory != null) {
-			load(factory);
+		handler = new LoadHandler(handlerThread.getLooper());
+		LoadData loadData = mLoadData;
+		if (loadData != null && loadData.mFactory != null) {
+			load(loadData.mFactory);
 		}
 	}
 
@@ -172,15 +103,12 @@ public class ImageManager {
 		return scale;
 	}
 
-	private CacheData currentCacheData;
 	private HandlerThread handlerThread;
-	private Handler handler;
-
-	private int imageHeight;
-	private int imageWidth;
+	private LoadHandler handler;
 
 	public boolean hasLoad() {
-		return mDecoder != null;
+		LoadData loadData = mLoadData;
+		return loadData != null && loadData.mDecoder != null;
 	}
 
 	private Rect madeRect(Bitmap bitmap, int row, int col, int scaleKey, float imageScale) {
@@ -205,10 +133,15 @@ public class ImageManager {
 	 */
 	public List<DrawData> getDrawData(float imageScale, Rect imageRect) {
 		long startTime = SystemClock.uptimeMillis();
-
-		if (mDecoder == null) {
+		LoadData loadData = mLoadData;
+		if (loadData == null || loadData.mDecoder == null) {
 			return new ArrayList<DrawData>(0);
 		}
+		int imageWidth = loadData.mImageWidth;
+		int imageHeight = loadData.mImageHeight;
+		List<CacheData> cacheDatas = loadData.mCacheDatas;
+		Bitmap cacheImageData = loadData.mCacheImageData;
+		int cacheImageScale = loadData.mCacheImageScale;
 
 		List<DrawData> drawDatas = new ArrayList<DrawData>();
 		if (imageRect.left < 0) {
@@ -217,11 +150,11 @@ public class ImageManager {
 		if (imageRect.top < 0) {
 			imageRect.top = 0;
 		}
-		if (imageRect.right > imageWidth) {
-			imageRect.right = imageWidth;
+		if (imageRect.right > loadData.mImageWidth) {
+			imageRect.right = loadData.mImageWidth;
 		}
-		if (imageRect.bottom > imageHeight) {
-			imageRect.bottom = imageHeight;
+		if (imageRect.bottom > loadData.mImageHeight) {
+			imageRect.bottom = loadData.mImageHeight;
 		}
 
 		if (cacheImageData == null) {
@@ -233,15 +166,11 @@ public class ImageManager {
 				if (cacheImageScale < s) {
 					cacheImageScale *= 2;
 				}
-				Options decodingOptions = new Options();
-				decodingOptions.inSampleSize = cacheImageScale;
-				cacheImageData = mDecoder.decodeRegion(new Rect(0, 0, imageWidth, imageHeight), decodingOptions);
-				Log.d("vvvv", " cacheImageData: " + getBitmapSize(cacheImageData));
+				handler.sendMessage(handler.obtainMessage(MESSAGE_PIC, cacheImageScale));
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-		}
-		if (cacheImageData != null) {
+		} else {
 			Rect cacheImageRect = new Rect(imageRect);
 			int cache = dip2px(context, 100);
 			cache = (int) (cache * imageScale);
@@ -268,6 +197,7 @@ public class ImageManager {
 			r.top = (int) Math.abs(1.0f * cacheImageRect.top / cacheImageScale);
 			r.bottom = (int) Math.abs(1.0f * cacheImageRect.bottom / cacheImageScale);
 			drawDatas.add(new DrawData(cacheImageData, r, cacheImageRect));
+
 			Log.d("vvvv", "imageRect:" + imageRect + " tempImageScale:" + cacheImageScale);
 			Log.d("vvvv", "rect:" + r);
 		}
@@ -328,26 +258,67 @@ public class ImageManager {
 		int what = preMessageWhat == MESSAGE_BLOCK_1 ? MESSAGE_BLOCK_2 : MESSAGE_BLOCK_1;
 		preMessageWhat = what;
 
-		if (currentCacheData != null && currentCacheData.scale != scale) {
-			cacheDatas.add(new CacheData(currentCacheData.scale, new HashMap<Position, Bitmap>(currentCacheData.images)));
-			currentCacheData = null;
+		if (loadData.mCurrentCacheData != null && loadData.mCurrentCacheData.scale != scale) {
+			cacheDatas.add(new CacheData(loadData.mCurrentCacheData.scale, new HashMap<Position, Bitmap>(loadData.mCurrentCacheData.images)));
+			loadData.mCurrentCacheData = null;
 		}
-		if (currentCacheData == null) {
+		if (loadData.mCurrentCacheData == null) {
 			Iterator<CacheData> iterator = cacheDatas.iterator();
 			while (iterator.hasNext()) {
 				CacheData cacheData = iterator.next();
 				if (scale == cacheData.scale) {
-					currentCacheData = new CacheData(scale, new ConcurrentHashMap<Position, Bitmap>(cacheData.images));
+					loadData.mCurrentCacheData = new CacheData(scale, new ConcurrentHashMap<Position, Bitmap>(cacheData.images));
 					iterator.remove();
 				}
 			}
 		}
-		if (currentCacheData == null) {
-			currentCacheData = new CacheData(scale, new ConcurrentHashMap<Position, Bitmap>());
+		if (loadData.mCurrentCacheData == null) {
+			loadData.mCurrentCacheData = new CacheData(scale, new ConcurrentHashMap<Position, Bitmap>());
 			for (int row = startRow; row <= endRow; row++) {
 				for (int col = startCol; col <= endCol; col++) {
 					Position position = new Position(row, col);
 					needShowPositions.add(position);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+
+			/**
+			 * <pre>
+			 * #########  1
+			 * #       #
+			 * #       #
+			 * #########
+			 * 
+			 * <pre>
+			 */
+
+			// 上 #########
+			for (int row = cacheStartRow; row < startRow; row++) {
+				for (int col = cacheStartCol; col <= cacheEndCol; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// 下 #########
+			for (int row = endRow + 1; row < cacheEndRow; row++) {
+				for (int col = cacheStartCol; col <= cacheEndCol; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// # 左
+			// #
+			for (int row = startRow; row < endRow; row++) {
+				for (int col = cacheStartCol; col < startCol; col++) {
+					Position position = new Position(row, col);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// # 右
+			// #
+			for (int row = startRow; row < endRow; row++) {
+				for (int col = endRow + 1; col < cacheEndRow; col++) {
+					Position position = new Position(row, col);
 					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
 				}
 			}
@@ -359,7 +330,7 @@ public class ImageManager {
 			for (int row = startRow; row <= endRow; row++) {
 				for (int col = startCol; col <= endCol; col++) {
 					Position position = new Position(row, col);
-					Bitmap bitmap = currentCacheData.images.get(position);
+					Bitmap bitmap = loadData.mCurrentCacheData.images.get(position);
 					if (bitmap == null) {
 						needShowPositions.add(position);
 						handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
@@ -370,7 +341,42 @@ public class ImageManager {
 					}
 				}
 			}
-			currentCacheData.images.keySet().retainAll(usePositions);
+			// 上 #########
+			for (int row = cacheStartRow; row < startRow; row++) {
+				for (int col = cacheStartCol; col <= cacheEndCol; col++) {
+					Position position = new Position(row, col);
+					usePositions.add(position);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// 下 #########
+			for (int row = endRow + 1; row < cacheEndRow; row++) {
+				for (int col = cacheStartCol; col <= cacheEndCol; col++) {
+					Position position = new Position(row, col);
+					usePositions.add(position);
+					Log.d("9999", "下 " + position);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// # 左
+			// #
+			for (int row = startRow; row < endRow; row++) {
+				for (int col = cacheStartCol; col < startCol; col++) {
+					Position position = new Position(row, col);
+					usePositions.add(position);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			// # 右
+			// #
+			for (int row = startRow; row < endRow; row++) {
+				for (int col = endRow + 1; col < cacheEndRow; col++) {
+					Position position = new Position(row, col);
+					usePositions.add(position);
+					handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+				}
+			}
+			loadData.mCurrentCacheData.images.keySet().retainAll(usePositions);
 		}
 
 		Log.d("countTime", "currentScale time :" + (SystemClock.uptimeMillis() - startTime));
@@ -417,31 +423,31 @@ public class ImageManager {
 						int startPositionCol = position.col * ds;
 						int endPositionCol = startPositionCol + ds;
 						Bitmap bitmap = entry.getValue();
-						int imageWitdh = bitmap.getWidth();
-						int imageHeight = bitmap.getHeight();
+						int iW = bitmap.getWidth();
+						int iH = bitmap.getHeight();
 
 						// 单位图片的大小
 						int blockImageSize = BASE_BLOCKSIZE / ds;
 
-						Log.d("nnnn", " bitmap.getWidth():" + bitmap.getWidth() + " imageHeight:" + imageHeight);
+						Log.d("nnnn", " bitmap.getWidth():" + bitmap.getWidth() + " imageHeight:" + iH);
 						for (int row = startPositionRow, i = 0; row <= endPositionRow; row++, i++) {
 							int top = i * blockImageSize;
-							if (top >= imageHeight) {
+							if (top >= iH) {
 								break;
 							}
 							for (int col = startPositionCol, j = 0; col <= endPositionCol; col++, j++) {
 								int left = j * blockImageSize;
-								if (left >= imageWitdh) {
+								if (left >= iW) {
 									break;
 								}
 								if (needShowPositions.remove(new Position(row, col))) {
 									int right = left + blockImageSize;
 									int bottom = top + blockImageSize;
-									if (right > imageWitdh) {
-										right = imageWitdh;
+									if (right > iW) {
+										right = iW;
 									}
-									if (bottom > imageHeight) {
-										bottom = imageHeight;
+									if (bottom > iH) {
+										bottom = iH;
 									}
 									Rect rect = new Rect();
 									rect.left = col * size;
@@ -621,8 +627,6 @@ public class ImageManager {
 		}
 	}
 
-	private BitmapRegionDecoder mDecoder;
-
 	private OnImageLoadListenner onImageLoadListenner;
 
 	public static interface OnImageLoadListenner {
@@ -636,23 +640,15 @@ public class ImageManager {
 		handlerThread.quit();
 		handlerThread = null;
 		handler = null;
-		factory = null;
-		if (mDecoder != null) {
-			try {
-				mDecoder.recycle();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			mDecoder = null;
-		}
+		release(this.mLoadData);
 	}
 
 	public int getWidth() {
-		return imageWidth;
+		return mLoadData == null ? 0 : mLoadData.mImageWidth;
 	}
 
 	public int getHeight() {
-		return imageHeight;
+		return mLoadData == null ? 0 : mLoadData.mImageHeight;
 	}
 
 	public void load(InputStream inputStream) {
@@ -663,30 +659,58 @@ public class ImageManager {
 		load(new PathBitmapRegionDecoderFactory(filePath));
 	}
 
+	private volatile LoadData mLoadData;
+
 	private void load(BitmapRegionDecoderFactory factory) {
-		this.factory = factory;
-		currentCacheData = null;
-		cacheImageData = null;
-		cacheDatas.clear();
-		imageWidth = 0;
-		imageHeight = 0;
+		release(this.mLoadData);
+		this.mLoadData = new LoadData(factory);
 		if (handler != null) {
-			handler.removeMessages(MESSAGE_BLOCK_1);
-			handler.removeMessages(MESSAGE_BLOCK_2);
-			handler.removeMessages(MESSAGE_LOAD);
+			handler.removeCallbacksAndMessages(null);
 			handler.sendEmptyMessage(MESSAGE_LOAD);
 		}
 	}
 
+	private void release(LoadData loadData) {
+		if (loadData == null) {
+			return;
+		}
+		if (loadData.mDecoder != null) {
+			try {
+				loadData.mDecoder.recycle();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			loadData.mDecoder = null;
+		}
+	}
+
+	public static final int MESSAGE_PIC = 665;
 	public static final int MESSAGE_LOAD = 666;
 	public static final int MESSAGE_BLOCK_1 = 1;
 	public static final int MESSAGE_BLOCK_2 = 2;
 
+	private static class LoadData {
+		public LoadData(BitmapRegionDecoderFactory factory) {
+			this.mFactory = factory;
+		}
+
+		private volatile CacheData mCurrentCacheData;
+		/** 保存显示区域中的各个缩放的图片切换 */
+		private List<CacheData> mCacheDatas = new LinkedList<CacheData>();
+
+		/** 保存预先显示的整张图 */
+		private volatile Bitmap mCacheImageData;
+		/** 保存整张图图片缩放级别 */
+		private volatile int mCacheImageScale;
+		private volatile int mImageHeight;
+		private volatile int mImageWidth;
+		private volatile BitmapRegionDecoderFactory mFactory;
+		private volatile BitmapRegionDecoder mDecoder;
+	}
+
 	private interface BitmapRegionDecoderFactory {
 		public BitmapRegionDecoder made() throws IOException;
 	}
-
-	private BitmapRegionDecoderFactory factory;
 
 	private static class InputStreamBitmapRegionDecoderFactory implements BitmapRegionDecoderFactory {
 		private InputStream inputStream;
@@ -716,6 +740,86 @@ public class ImageManager {
 			return BitmapRegionDecoder.newInstance(path, false);
 		}
 
+	}
+
+	private class LoadHandler extends Handler {
+
+		public LoadHandler(Looper looper) {
+			super(looper);
+		}
+
+		@Override
+		public void handleMessage(Message msg) {
+			super.handleMessage(msg);
+			LoadData loadData = mLoadData;
+			if (msg.what == MESSAGE_LOAD) {
+				if (loadData.mFactory != null) {
+					try {
+						loadData.mDecoder = loadData.mFactory.made();
+						loadData.mImageWidth = loadData.mDecoder.getWidth();
+						loadData.mImageHeight = loadData.mDecoder.getHeight();
+						if (onImageLoadListenner != null) {
+							onImageLoadListenner.onImageLoadFinished(loadData.mImageWidth, loadData.mImageHeight);
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			} else if (msg.what == MESSAGE_PIC) {
+				Integer scale = (Integer) msg.obj;
+				Options decodingOptions = new Options();
+				decodingOptions.inSampleSize = scale;
+				try {
+					loadData.mCacheImageData = loadData.mDecoder.decodeRegion(new Rect(0, 0, loadData.mImageWidth, loadData.mImageHeight),
+							decodingOptions);
+					loadData.mCacheImageScale = scale;
+					Log.d("vvvv", " cacheImageData: " + getBitmapSize(loadData.mCacheImageData));
+					if (onImageLoadListenner != null) {
+						onImageLoadListenner.onBlockImageLoadFinished();
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			} else {
+				MessageData data = (MessageData) msg.obj;
+				CacheData cacheData = loadData.mCurrentCacheData;
+				if (cacheData == null || cacheData.scale != data.scale) {
+					return;
+				}
+				Position position = data.position;
+				Bitmap imageData = cacheData.images.get(position);
+				// 不存在才需要加载，（这里避免之前的任务重复被执行）
+				if (imageData == null) {
+					int imageBlockSize = BASE_BLOCKSIZE * data.scale;
+					int left = imageBlockSize * position.col;
+					int right = left + imageBlockSize;
+					int top = imageBlockSize * position.row;
+					int bottom = top + imageBlockSize;
+					if (right > loadData.mImageWidth) {
+						right = loadData.mImageWidth;
+					}
+					if (bottom > loadData.mImageHeight) {
+						bottom = loadData.mImageHeight;
+					}
+					Rect clipImageRect = new Rect(left, top, right, bottom);
+					Options decodingOptions = new Options();
+					decodingOptions.inSampleSize = data.scale;
+					// 加载clipRect的区域的图片块
+					try {
+						imageData = loadData.mDecoder.decodeRegion(clipImageRect, decodingOptions);
+						if (imageData != null) {
+							cacheData.images.put(position, imageData);
+							if (onImageLoadListenner != null) {
+								onImageLoadListenner.onBlockImageLoadFinished();
+							}
+						}
+					} catch (Exception e) {
+						Log.d("nnnn", position.toString() + " " + clipImageRect.toShortString());
+						e.printStackTrace();
+					}
+				}
+			}
+		}
 	}
 
 }
