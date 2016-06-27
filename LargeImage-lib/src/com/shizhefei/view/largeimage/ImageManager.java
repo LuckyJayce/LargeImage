@@ -27,8 +27,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -617,8 +615,11 @@ public class ImageManager {
 
 		@Override
 		public int hashCode() {
-			HashCodeBuilder builder = new HashCodeBuilder().append(col).append(row);
-			return builder.toHashCode();
+			int iTotal = 17;
+			int iConstant = 37;
+			iTotal = iTotal * iConstant + row;
+			iTotal = iTotal * iConstant + col;
+			return iTotal;
 		}
 
 		@Override
