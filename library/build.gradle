@@ -1,11 +1,12 @@
 apply plugin: 'com.android.library'
+apply plugin: 'com.novoda.bintray-release'//添加jcenter插件
 
 android {
     compileSdkVersion 24
     buildToolsVersion "24.0.0"
 
     defaultConfig {
-        minSdkVersion 10
+        minSdkVersion 9
         targetSdkVersion 24
         versionCode 1
         versionName "1.0"
@@ -16,10 +17,23 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    lintOptions {
+        abortOnError false
+    }
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
-    compile project(':gesture')
+    compile 'com.android.support:support-v4:24.0.0'
+}
+
+//添加
+publish {
+    userOrg = 'luckyjayce'//bintray.com用户名
+    groupId = 'com.shizhefei'//jcenter上的路径
+    artifactId = 'LargeImageView'//项目名称
+    publishVersion = '1.0.0'//版本号
+    desc = 'display large image,can scale and move image'//描述，不重要
+    website = 'https://github.com/LuckyJayce/LargeImageView'//网站，不重要；尽量模拟github上的地址，例如我这样的；当然你有地址最好了
 }

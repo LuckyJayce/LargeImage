@@ -1,253 +1,647 @@
-/*
-Copyright 2015 shizhefei（LuckyJayce）
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-   http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
- */
 package com.shizhefei.view.largeimage;
 
-import java.io.InputStream;
-import java.util.List;
-
-import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
-import android.os.Looper;
-import android.os.SystemClock;
+import android.support.annotation.DrawableRes;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.graphics.drawable.DrawableCompat;
+import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.ScrollerCompat;
 import android.util.AttributeSet;
-import android.util.Log;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
+import android.view.View;
+import android.view.ViewConfiguration;
 
-import com.shizhefei.view.largeimage.ImageManager.DrawData;
-import com.shizhefei.view.largeimage.ImageManager.OnImageLoadListenner;
+import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 
-public class LargeImageView extends UpdateView implements IPhotoView, OnImageLoadListenner {
+import java.util.List;
 
-	@TargetApi(Build.VERSION_CODES.LOLLIPOP)
-	public LargeImageView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-		super(context, attrs, defStyleAttr, defStyleRes);
-		imageManager = new ImageManager(context);
-	}
+/**
+ * Created by LuckyJayce on 2016/11/24.
+ */
 
-	public LargeImageView(Context context, AttributeSet attrs, int defStyleAttr) {
-		super(context, attrs, defStyleAttr);
-		imageManager = new ImageManager(context);
-	}
+public class LargeImageView extends View implements BlockImageLoader.OnImageLoadListener, ILargeImageView {
+    private final GestureDetector gestureDetector;
+    private final ScrollerCompat mScroller;
+    private final BlockImageLoader imageBlockLoader;
+    private final int mMinimumVelocity;
+    private final int mMaximumVelocity;
+    private final ScaleGestureDetector scaleGestureDetector;
+    private int mDrawableWidth;
+    private int mDrawableHeight;
+    private volatile Runnable runnable;
+    private float mScale = 1;
+    private BitmapDecoderFactory mFactory;
+    private float fitScale;
+    private float maxScale;
+    private float minScale;
+    private BlockImageLoader.OnImageLoadListener mOnImageLoadListener;
+    private Drawable mDrawable;
+    private int mLevel;
 
-	public LargeImageView(Context context, AttributeSet attrs) {
-		super(context, attrs);
-		imageManager = new ImageManager(context);
-	}
+    public LargeImageView(Context context) {
+        this(context, null);
+    }
 
-	public LargeImageView(Context context) {
-		super(context);
-		imageManager = new ImageManager(context);
-	}
+    public LargeImageView(Context context, AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
 
-	public void setScale(float scale, float offsetX, float offsetY) {
-		mScale.setScale(scale);
-		mScale.setFromX((int) offsetX);
-		mScale.setFromY((int) offsetY);
-		notifyInvalidate();
-	}
+    public LargeImageView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        mScroller = ScrollerCompat.create(getContext(), null);
+        setFocusable(true);
+        setWillNotDraw(false);
+        gestureDetector = new GestureDetector(context, simpleOnGestureListener);
+        scaleGestureDetector = new ScaleGestureDetector(context, onScaleGestureListener);
 
-	public int getImageWidth() {
-		if (imageManager != null) {
-			return imageManager.getWidth();
-		}
-		return 0;
-	}
+        imageBlockLoader = new BlockImageLoader(context);
+        imageBlockLoader.setOnImageLoadListener(this);
+        final ViewConfiguration configuration = ViewConfiguration.get(getContext());
+        mMinimumVelocity = configuration.getScaledMinimumFlingVelocity();
+        mMaximumVelocity = configuration.getScaledMaximumFlingVelocity();
+    }
 
-	public int getImageHeight() {
-		if (imageManager != null) {
-			return imageManager.getHeight();
-		}
-		return 0;
-	}
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        scaleGestureDetector.onTouchEvent(event);
+        gestureDetector.onTouchEvent(event);
+        return true;
+    }
 
-	public Scale getScale() {
-		return mScale;
-	}
+    @Override
+    public void computeScroll() {
+        super.computeScroll();
+        if (mScroller.computeScrollOffset()) {
+            if (mScroller.computeScrollOffset()) {
+                int oldX = getScrollX();
+                int oldY = getScrollY();
+                int x = mScroller.getCurrX();
+                int y = mScroller.getCurrY();
+                if (oldX != x || oldY != y) {
+                    final int rangeY = getScrollRangeY();
+                    final int rangeX = getScrollRangeX();
+                    overScrollByCompat(x - oldX, y - oldY, oldX, oldY, rangeX, rangeY,
+                            0, 0, false);
+                }
+                if (!mScroller.isFinished()) {
+                    notifyInvalidate();
+                }
+            }
+        }
+    }
 
-	private Scale mScale = new Scale(1, 0, 0);
-	private ImageManager imageManager;
+    @Override
+    public boolean canScrollHorizontally(int direction) {
+        if (direction > 0) {
+            return getScrollX() < getScrollRangeX();
+        } else {
+            return getScrollX() > 0 && getScrollRangeX() > 0;
+        }
+    }
 
-	@Override
-	protected void onAttachedToWindow() {
-		super.onAttachedToWindow();
-		imageManager.start(this);
-	}
+    @Override
+    public boolean canScrollVertically(int direction) {
+        if (direction > 0) {
+            return getScrollY() < getScrollRangeY();
+        } else {
+            return getScrollY() > 0 && getScrollRangeY() > 0;
+        }
+    }
 
-	@Override
-	protected void onDetachedFromWindow() {
-		imageManager.destroy();
-		super.onDetachedFromWindow();
-	}
+    @Override
+    public void setOnImageLoadListener(BlockImageLoader.OnImageLoadListener onImageLoadListener) {
+        this.mOnImageLoadListener = onImageLoadListener;
+    }
 
-	private Drawable drawable;
+    @Override
+    public BlockImageLoader.OnImageLoadListener getOnImageLoadListener() {
+        return mOnImageLoadListener;
+    }
 
-	public void setDefaulImage(Drawable drawable) {
-		this.drawable = drawable;
-	}
+    /**
+     * Sets a Bitmap as the content of this ImageView.
+     *
+     * @param bm The bitmap to initFitImageScale
+     */
+    @Override
+    public void setImage(Bitmap bm) {
+        setImageDrawable(new BitmapDrawable(getResources(), bm));
+    }
 
-	public void setImage(String filePath) {
-		mScale.setScale(1);
-		mScale.fromX = 0;
-		mScale.fromY = 0;
-		imageManager.load(filePath);
-	}
+    @Override
+    public void setImage(@DrawableRes int resId) {
+        setImageDrawable(ContextCompat.getDrawable(getContext(), resId));
+    }
 
-	public void setImage(InputStream inputStream) {
-		mScale.setScale(1);
-		mScale.fromX = 0;
-		mScale.fromY = 0;
-		imageManager.load(inputStream);
-	}
+    @Override
+    public void setImageDrawable(Drawable drawable) {
+        mFactory = null;
+        mScale = 1.0f;
+        scrollTo(0, 0);
+        if (mDrawable != drawable) {
+            final int oldWidth = mDrawableWidth;
+            final int oldHeight = mDrawableHeight;
+            updateDrawable(drawable);
+            onLoadImageSize(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+            if (oldWidth != mDrawableWidth || oldHeight != mDrawableHeight) {
+                requestLayout();
+            }
+            notifyInvalidate();
+        }
+    }
 
-	@Override
-	protected void onUpdateWindow(Rect visiableRect) {
-		preInvalidateTime = SystemClock.uptimeMillis();
-		runnable = null;
-		invalidate(getVisiableRect());
-	}
+    @Override
+    public void setImage(BitmapDecoderFactory factory) {
+        setImage(factory, null);
+    }
 
-	private volatile long preInvalidateTime;
-	private volatile Runnable runnable;
+    @Override
+    public void setImage(BitmapDecoderFactory factory, Drawable defaultDrawable) {
+        mScale = 1.0f;
+        this.mFactory = factory;
+        scrollTo(0, 0);
+        if (defaultDrawable != null) {
+            onLoadImageSize(defaultDrawable.getIntrinsicWidth(), defaultDrawable.getIntrinsicHeight());
+        }
+        imageBlockLoader.load(factory);
+    }
 
-	// 1000毫秒/60帧 = 16.6666秒 一帧 = 17秒 一帧
-	private static final int LOOP_TIME = 17;
+    private void updateDrawable(Drawable d) {
+        if (mDrawable != null) {
+            mDrawable.setCallback(null);
+            unscheduleDrawable(mDrawable);
+        }
+        mDrawable = d;
+        if (d != null) {
+            d.setCallback(this);
+            DrawableCompat.setLayoutDirection(d, DrawableCompat.getLayoutDirection(d));
+            if (d.isStateful()) {
+                d.setState(getDrawableState());
+            }
+            d.setVisible(getVisibility() == VISIBLE, true);
+            d.setLevel(mLevel);
+            mDrawableWidth = d.getIntrinsicWidth();
+            mDrawableHeight = d.getIntrinsicHeight();
+        } else {
+            mDrawableWidth = mDrawableHeight = -1;
+        }
+    }
 
-	private void notifyInvalidate() {
-		// 避免更新太过频繁，设置最小LOOP_TIME毫秒的更新间隔
+    @Override
+    public boolean hasLoad() {
+        if (mDrawable != null) {
+            return true;
+        } else if (mFactory != null) {
+            return imageBlockLoader.hasLoad();
+        }
+        return false;
+    }
 
-		// 和上次的间隔时间
-		long deltaTime = SystemClock.uptimeMillis() - preInvalidateTime;
-		if (runnable != null) {
-			return;
-		}
-		if (deltaTime < LOOP_TIME) {
-			LargeImageView.this.postDelayed(runnable = new Runnable() {
+    @Override
+    public int computeVerticalScrollRange() {
+        final int contentHeight = getHeight() - getPaddingBottom() - getPaddingTop();
+        int scrollRange = getContentHeight();
+        final int scrollY = getScrollY();
+        final int overscrollBottom = Math.max(0, scrollRange - contentHeight);
+        if (scrollY < 0) {
+            scrollRange -= scrollY;
+        } else if (scrollY > overscrollBottom) {
+            scrollRange += scrollY - overscrollBottom;
+        }
+        return scrollRange;
+    }
 
-				@Override
-				public void run() {
-					preInvalidateTime = SystemClock.uptimeMillis();
-					runnable = null;
-					Log.d("eeee", "preInvalidateTime:" + preInvalidateTime);
-					invalidate(getVisiableRect());
-				}
-			}, LOOP_TIME - deltaTime);
-		} else {
-			// 处于主线程执行invalidate操作，否则post到主线程上执行ui操作
-			if (Looper.getMainLooper() == Looper.myLooper()) {
-				preInvalidateTime = SystemClock.uptimeMillis();
-				runnable = null;
-				Log.d("eeee", "preInvalidateTime:" + preInvalidateTime);
-				invalidate(getVisiableRect());
-			} else {
-				LargeImageView.this.post(runnable = new Runnable() {
+    @Override
+    public int getImageWidth() {
+        if (mDrawable != null) {
+            return mDrawableWidth;
+        } else if (mFactory != null) {
+            if (hasLoad()) {
+                return mDrawableWidth;
+            }
+        }
+        return 0;
+    }
 
-					@Override
-					public void run() {
-						preInvalidateTime = SystemClock.uptimeMillis();
-						runnable = null;
-						Log.d("eeee", "preInvalidateTime:" + preInvalidateTime);
-						invalidate(getVisiableRect());
-					}
-				});
-			}
-		}
-	}
+    @Override
+    public int getImageHeight() {
+        if (mDrawable != null) {
+            return mDrawableHeight;
+        } else if (mFactory != null) {
+            if (hasLoad()) {
+                return mDrawableHeight;
+            }
+        }
+        return 0;
+    }
 
-	@SuppressLint("DrawAllocation")
-	@Override
-	protected void onDraw(Canvas canvas) {
-		if (getWidth() == 0) {
-			return;
-		}
+    private int getScrollRangeY() {
+        final int contentHeight = getHeight() - getPaddingBottom() - getPaddingTop();
+        return getContentHeight() - contentHeight;
+    }
 
-		Log.d("countTime", "----------------- mScale.scale" + mScale.scale);
+    /**
+     *
+     */
+    @Override
+    public int computeVerticalScrollOffset() {
+        return Math.max(0, super.computeVerticalScrollOffset());
+    }
 
-		long startTime = SystemClock.uptimeMillis();
+    /**
+     *
+     */
+    @Override
+    public int computeVerticalScrollExtent() {
+        return super.computeVerticalScrollExtent();
+    }
 
-		Rect visiableRect = getVisiableRect();
+    /**
+     *
+     */
+    @Override
+    public int computeHorizontalScrollRange() {
+        final int contentWidth = getWidth() - getPaddingRight() - getPaddingLeft();
+        int scrollRange = getContentWidth();
+        final int scrollX = getScrollX();
+        final int overscrollRight = Math.max(0, scrollRange - contentWidth);
+        if (scrollX < 0) {
+            scrollRange -= scrollX;
+        } else if (scrollX > overscrollRight) {
+            scrollRange += scrollX - overscrollRight;
+        }
+        return scrollRange;
+    }
 
-		Log.d("countTime", "getVisiableRect " + (SystemClock.uptimeMillis() - startTime));
-		startTime = SystemClock.uptimeMillis();
+    private int getScrollRangeX() {
+        final int contentWidth = getWidth() - getPaddingRight() - getPaddingLeft();
+        return (getContentWidth() - contentWidth);
+    }
 
-		Log.d("cccc", "onDraw onUpdateWindow " + visiableRect);
-		if (!imageManager.hasLoad()) {
-			if (drawable != null) {
-				int saveCount = canvas.save();
-				drawable.draw(canvas);
-				canvas.restoreToCount(saveCount);
-			}
-			return;
-		}
+    private int getContentWidth() {
+        if (hasLoad()) {
+            return (int) (getMeasuredWidth() * mScale);
+        }
+        return 0;
+    }
 
-		int saveCount = canvas.save();
-//		canvas.clipRect(visiableRect);
+    private int getContentHeight() {
+        if (hasLoad()) {
+            if (getImageWidth() == 0) {
+                return 0;
+            }
+            return (int) (1.0f * getMeasuredWidth() * getImageHeight() / getImageWidth() * mScale);
+        }
+        return 0;
+    }
 
-		Log.d("countTime", "clipRect " + (SystemClock.uptimeMillis() - startTime));
-		startTime = SystemClock.uptimeMillis();
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+        if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
+            return;
+        }
+        int drawOffsetX = 0;
+        int drawOffsetY = 0;
+        int contentWidth = getContentWidth();
+        int contentHeight = getContentHeight();
+        int layoutWidth = getMeasuredWidth();
+        int layoutHeight = getMeasuredHeight();
+        if (layoutWidth > contentWidth) {
+            drawOffsetX = (layoutWidth - contentWidth) / 2;
+        }
+        if (layoutHeight > contentHeight) {
+            drawOffsetY = (layoutHeight - contentHeight) / 2;
+        }
+        if (mDrawable != null) {
+            mDrawable.setBounds(drawOffsetX, drawOffsetY, drawOffsetX + contentWidth, drawOffsetY + contentHeight);
+            mDrawable.draw(canvas);
+        } else if (mFactory != null) {
+            int mOffsetX = 0;
+            int mOffsetY = 0;
+            int left = getScrollX();
+            int right = left + getMeasuredWidth();
+            int top = getScrollY();
+            int bottom = top + getMeasuredHeight();
+            float width = mScale * getWidth();
+            float imgWidth = imageBlockLoader.getWidth();
 
-		float width = mScale.scale * getWidth();
-		int imgWidth = imageManager.getWidth();
+            float imageScale = imgWidth / width;
 
-		Log.d("countTime", "getWidth " + (SystemClock.uptimeMillis() - startTime));
+            // 需要显示的图片的实际宽度。
+            Rect imageRect = new Rect();
+            imageRect.left = (int) Math.ceil((left - mOffsetX) * imageScale);
+            imageRect.top = (int) Math.ceil((top - mOffsetY) * imageScale);
+            imageRect.right = (int) Math.ceil((right - mOffsetX) * imageScale);
+            imageRect.bottom = (int) Math.ceil((bottom - mOffsetY) * imageScale);
 
-		float imageScale = imgWidth / width;
+            List<BlockImageLoader.DrawData> drawData = imageBlockLoader.getDrawData(imageScale, imageRect);
 
-		// 需要显示的图片的实际宽度。
-		Rect imageRect = new Rect();
-		imageRect.left = (int) Math.ceil((visiableRect.left + mScale.fromX) * imageScale);
-		imageRect.top = (int) Math.ceil((visiableRect.top + mScale.fromY) * imageScale);
-		imageRect.right = (int) Math.ceil((visiableRect.right + mScale.fromX) * imageScale);
-		imageRect.bottom = (int) Math.ceil((visiableRect.bottom + mScale.fromY) * imageScale);
+            int saveCount = canvas.save();
+            for (BlockImageLoader.DrawData data : drawData) {
+                Rect drawRect = data.imageRect;
+                drawRect.left = (int) (Math.ceil(drawRect.left / imageScale) + mOffsetX) + drawOffsetX;
+                drawRect.top = (int) (Math.ceil(drawRect.top / imageScale) + mOffsetY) + drawOffsetY;
+                drawRect.right = (int) (Math.ceil(drawRect.right / imageScale) + mOffsetX) + drawOffsetX;
+                drawRect.bottom = (int) (Math.ceil(drawRect.bottom / imageScale) + mOffsetY) + drawOffsetY;
+                canvas.drawBitmap(data.bitmap, data.srcRect, drawRect, null);
+            }
+            canvas.restoreToCount(saveCount);
+        }
+    }
 
-		Log.d("countTime", "imageScale " + (SystemClock.uptimeMillis() - startTime));
-		startTime = SystemClock.uptimeMillis();
+    @Override
+    public void onBlockImageLoadFinished() {
+        notifyInvalidate();
+        if (mOnImageLoadListener != null) {
+            mOnImageLoadListener.onBlockImageLoadFinished();
+        }
+    }
 
-		List<DrawData> drawData = imageManager.getDrawData(imageScale, imageRect);
+    @Override
+    public void onLoadImageSize(final int imageWidth, final int imageHeight) {
+        mDrawableWidth = imageWidth;
+        mDrawableHeight = imageHeight;
+        final int layoutWidth = getMeasuredWidth();
+        final int layoutHeight = getMeasuredHeight();
+        if (layoutWidth == 0 || layoutHeight == 0) {
+            post(new Runnable() {
+                @Override
+                public void run() {
+                    initFitImageScale(imageWidth, imageHeight);
+                }
+            });
+        } else {
+            initFitImageScale(imageWidth, imageHeight);
+        }
+        notifyInvalidate();
+        if (mOnImageLoadListener != null) {
+            mOnImageLoadListener.onLoadImageSize(imageWidth, imageHeight);
+        }
+    }
 
-		Log.d("countTime", "getDrawData " + (SystemClock.uptimeMillis() - startTime));
-		startTime = SystemClock.uptimeMillis();
+    /**
+     * 设置合适的缩放大小
+     *
+     * @param imageWidth
+     * @param imageHeight
+     */
+    private void initFitImageScale(int imageWidth, int imageHeight) {
+        final int layoutWidth = getMeasuredWidth();
+        final int layoutHeight = getMeasuredHeight();
+        if (imageWidth > imageHeight) {
+            fitScale = (1.0f * imageWidth / layoutWidth) * layoutHeight / imageHeight;
+            maxScale = 1.0f * imageWidth / layoutWidth * 4;
+            minScale = 1.0f * imageWidth / layoutWidth / 4;
+            if (minScale > 1) {
+                minScale = 1;
+            }
+        } else {
+            fitScale = 1.0f;
+            minScale = 0.25f;
+            maxScale = 1.0f * imageWidth / layoutWidth;
+            float a = (1.0f * imageWidth / layoutWidth) * layoutHeight / imageHeight;
+            float density = getContext().getResources().getDisplayMetrics().density;
+            maxScale = maxScale * density;
+            if (maxScale < 4) {
+                maxScale = 4;
+            }
+            if (minScale > a) {
+                minScale = a;
+            }
+        }
+    }
 
-		for (DrawData data : drawData) {
-			Rect drawRect = data.imageRect;
-			drawRect.left = (int) (drawRect.left / imageScale - mScale.fromX);
-			drawRect.top = (int) (drawRect.top / imageScale - mScale.fromY);
-			drawRect.right = (int) (Math.ceil(drawRect.right / imageScale) - mScale.fromX);
-			drawRect.bottom = (int) (Math.ceil(drawRect.bottom / imageScale) - mScale.fromY);
-			canvas.drawBitmap(data.bitmap, data.srcRect, drawRect, null);
-		}
+    private void notifyInvalidate() {
+        ViewCompat.postInvalidateOnAnimation(LargeImageView.this);
+    }
 
-		Log.d("countTime", "draw " + (SystemClock.uptimeMillis() - startTime));
-		startTime = SystemClock.uptimeMillis();
 
-		canvas.restoreToCount(saveCount);
-	}
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (mDrawable != null) {
+            mDrawable.setVisible(getVisibility() == VISIBLE, false);
+        }
+    }
 
-	public static int dip2px(Context context, float dipValue) {
-		final float scale = context.getResources().getDisplayMetrics().density;
-		return (int) (dipValue * scale + 0.5f);
-	}
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        imageBlockLoader.destroy();
+        if (mDrawable != null) {
+            mDrawable.setVisible(false, false);
+        }
+    }
 
-	@Override
-	public void onBlockImageLoadFinished() {
-		notifyInvalidate();
-	}
+    private boolean overScrollByCompat(int deltaX, int deltaY,
+                                       int scrollX, int scrollY,
+                                       int scrollRangeX, int scrollRangeY,
+                                       int maxOverScrollX, int maxOverScrollY,
+                                       boolean isTouchEvent) {
+        int oldScrollX = getScrollX();
+        int oldScrollY = getScrollY();
 
-	@Override
-	public void onImageLoadFinished(int imageWidth, int imageHeight) {
-		notifyInvalidate();
-	}
+        int newScrollX = scrollX;
+
+        newScrollX += deltaX;
+
+        int newScrollY = scrollY;
+
+        newScrollY += deltaY;
+
+        // Clamp values if at the limits and record
+        final int left = -maxOverScrollX;
+        final int right = maxOverScrollX + scrollRangeX;
+        final int top = -maxOverScrollY;
+        final int bottom = maxOverScrollY + scrollRangeY;
+
+        boolean clampedX = false;
+        if (newScrollX > right) {
+            newScrollX = right;
+            clampedX = true;
+        } else if (newScrollX < left) {
+            newScrollX = left;
+            clampedX = true;
+        }
+
+        boolean clampedY = false;
+        if (newScrollY > bottom) {
+            newScrollY = bottom;
+            clampedY = true;
+        } else if (newScrollY < top) {
+            newScrollY = top;
+            clampedY = true;
+        }
+
+        if (newScrollX < 0) {
+            newScrollX = 0;
+        }
+        if (newScrollY < 0) {
+            newScrollY = 0;
+        }
+        onOverScrolled(newScrollX, newScrollY, clampedX, clampedY);
+        return getScrollX() - oldScrollX == deltaX || getScrollY() - oldScrollY == deltaY;
+    }
+
+    private boolean fling(int velocityX, int velocityY) {
+        if (Math.abs(velocityX) < mMinimumVelocity) {
+            velocityX = 0;
+        }
+        if (Math.abs(velocityY) < mMinimumVelocity) {
+            velocityY = 0;
+        }
+        final int scrollY = getScrollY();
+        final int scrollX = getScrollX();
+        final boolean canFlingX = (scrollX > 0 || velocityX > 0) &&
+                (scrollX < getScrollRangeX() || velocityX < 0);
+        final boolean canFlingY = (scrollY > 0 || velocityY > 0) &&
+                (scrollY < getScrollRangeY() || velocityY < 0);
+        boolean canFling = canFlingY || canFlingX;
+        if (canFling) {
+            velocityX = Math.max(-mMaximumVelocity, Math.min(velocityX, mMaximumVelocity));
+            velocityY = Math.max(-mMaximumVelocity, Math.min(velocityY, mMaximumVelocity));
+            int height = getHeight() - getPaddingBottom() - getPaddingTop();
+            int width = getWidth() - getPaddingRight() - getPaddingLeft();
+            int bottom = getContentHeight();
+            int right = getContentWidth();
+            mScroller.fling(getScrollX(), getScrollY(), velocityX, velocityY, 0, Math.max(0, right - width), 0,
+                    Math.max(0, bottom - height), width / 2, height / 2);
+            notifyInvalidate();
+            return true;
+        }
+        return false;
+    }
+
+    protected void onOverScrolled(int scrollX, int scrollY,
+                                  boolean clampedX, boolean clampedY) {
+        super.scrollTo(scrollX, scrollY);
+    }
+
+    @Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        super.onLayout(changed, left, top, right, bottom);
+        if (hasLoad()) {
+            initFitImageScale(mDrawableWidth, mDrawableHeight);
+        }
+    }
+
+    private GestureDetector.SimpleOnGestureListener simpleOnGestureListener = new GestureDetector.SimpleOnGestureListener() {
+
+        @Override
+        public boolean onDown(MotionEvent e) {
+            if (!mScroller.isFinished()) {
+                mScroller.abortAnimation();
+            }
+            return true;
+        }
+
+        @Override
+        public void onShowPress(MotionEvent e) {
+
+        }
+
+        @Override
+        public boolean onSingleTapUp(MotionEvent e) {
+            return false;
+        }
+
+        public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            overScrollByCompat((int) distanceX, (int) distanceY, getScrollX(), getScrollY(), getScrollRangeX(), getScrollRangeY(), 0, 0, false);
+            return true;
+        }
+
+        @Override
+        public void onLongPress(MotionEvent e) {
+
+        }
+
+        @Override
+        public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            fling((int) -velocityX, (int) -velocityY);
+            return true;
+        }
+
+        @Override
+        public boolean onDoubleTap(MotionEvent e) {
+            if (!hasLoad()) {
+                return false;
+            }
+            float newScale;
+            if (mScale < 1) {
+                newScale = 1;
+            } else if (mScale < fitScale && fitScale < maxScale) {
+                newScale = fitScale;
+            } else if (mScale < maxScale / 2 && mScale < 1.5f) {
+                if (maxScale / 2 < 1.5f) {
+                    newScale = 1.5f;
+                } else {
+                    newScale = maxScale / 2;
+                }
+            } else if (mScale < maxScale) {
+                newScale = maxScale;
+            } else {
+                newScale = 1;
+            }
+            setScale(newScale, e.getX(), e.getY());
+            return true;
+        }
+    };
+
+    private ScaleGestureDetector.OnScaleGestureListener onScaleGestureListener = new ScaleGestureDetector.OnScaleGestureListener() {
+        @Override
+        public boolean onScale(ScaleGestureDetector detector) {
+            if (!hasLoad()) {
+                return false;
+            }
+            float newScale;
+            newScale = mScale * detector.getScaleFactor();
+            if (newScale > maxScale) {
+                newScale = maxScale;
+            } else if (newScale < minScale) {
+                newScale = minScale;
+            }
+            setScale(newScale, detector.getFocusX(), detector.getFocusY());
+            return true;
+        }
+
+        @Override
+        public boolean onScaleBegin(ScaleGestureDetector detector) {
+            return true;
+        }
+
+        @Override
+        public void onScaleEnd(ScaleGestureDetector detector) {
+        }
+    };
+
+
+    @Override
+    public void setScale(float scale) {
+        setScale(scale, getMeasuredWidth() / 2, getMeasuredHeight() / 2);
+    }
+
+    @Override
+    public float getScale() {
+        return mScale;
+    }
+
+    private void setScale(float scale, float x, float y) {
+        float preScale = mScale;
+        mScale = scale;
+        int sX = getScrollX();
+        int sY = getScrollY();
+        int dx = (int) ((sX + x) * (scale / preScale - 1));
+        int dy = (int) ((sY + y) * (scale / preScale - 1));
+        overScrollByCompat(dx, dy, sX, sY, getScrollRangeX(), getScrollRangeY(), 0, 0, false);
+        notifyInvalidate();
+    }
+
 }

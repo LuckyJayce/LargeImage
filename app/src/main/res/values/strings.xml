@@ -2,5 +2,6 @@
 <resources>
 
     <string name="app_name">LagerImage</string>
+    <string name="title_activity_list">ListActivity</string>
 
 </resources>

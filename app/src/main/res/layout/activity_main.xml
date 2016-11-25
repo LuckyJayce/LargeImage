@@ -3,26 +3,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:gravity="center"
-    android:orientation="vertical" >
+    android:orientation="vertical">
 
     <Button
-        android:id="@+id/button1"
+        android:id="@+id/main_singleDemo_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="大图加载" />
+        android:text="单个大图片" />
 
     <Button
-        android:id="@+id/button2"
-        android:layout_marginTop="20dp"
+        android:id="@+id/main_viewPagerDemo_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="长图加载" />
-    
+        android:layout_marginTop="20dp"
+        android:text="ViewPager里的大图片" />
+
     <Button
-        android:id="@+id/button3"
-        android:layout_marginTop="20dp"
+        android:id="@+id/main_networkDemo_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="长图加载" />
+        android:layout_marginTop="20dp"
+        android:text="加载网络的大图片" />
 
 </LinearLayout>

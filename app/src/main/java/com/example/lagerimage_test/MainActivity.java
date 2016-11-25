@@ -1,39 +1,38 @@
 package com.example.lagerimage_test;
 
-import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
 import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.HorizontalScrollView;
-import android.widget.ScrollView;
 
-public class MainActivity extends Activity {
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
-		findViewById(R.id.button1).setOnClickListener(new OnClickListener() {
+public class MainActivity extends FragmentActivity {
+    private View singleDemoButton;
+    private View networkDemoButton;
+    private View viewPagerDemoButton;
 
-			@Override
-			public void onClick(View v) {
-				startActivity(new Intent(getApplicationContext(), LagerImageActivity.class));
-			}
-		});
-		findViewById(R.id.button2).setOnClickListener(new OnClickListener() {
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        singleDemoButton = findViewById(R.id.main_singleDemo_button);
+        viewPagerDemoButton = findViewById(R.id.main_viewPagerDemo_button);
+        networkDemoButton = findViewById(R.id.main_networkDemo_button);
 
-			@Override
-			public void onClick(View v) {
-				startActivity(new Intent(getApplicationContext(), LongImageActivity.class));
-			}
-		});
-		
-		findViewById(R.id.button3).setOnClickListener(new OnClickListener() {
+        singleDemoButton.setOnClickListener(onClickListener);
+        viewPagerDemoButton.setOnClickListener(onClickListener);
+        networkDemoButton.setOnClickListener(onClickListener);
+    }
 
-			@Override
-			public void onClick(View v) {
-				startActivity(new Intent(getApplicationContext(), HActivity.class));
-			}
-		});
-	}
+    private View.OnClickListener onClickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if (v == singleDemoButton) {
+                startActivity(new Intent(getApplicationContext(),SingleDemoActivity.class));
+            } else if (v == viewPagerDemoButton) {
+                startActivity(new Intent(getApplicationContext(),ViewPagerDemoActivity.class));
+            } else if (v == networkDemoButton) {
+                startActivity(new Intent(getApplicationContext(),NetworkDemoActivity.class));
+            }
+        }
+    };
 }

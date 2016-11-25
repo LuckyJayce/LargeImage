@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="com.example.lagerimage_test">
+
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Glide与OkHttp3集成 -->
+    <meta-data
+        android:name="com.example.lagerimage_test.glide.OkHttpProgressGlideModule"
+        android:value="GlideModule" />
 
     <application
         android:allowBackup="true"
@@ -17,11 +26,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".LongImageActivity" />
-        <activity android:name=".LagerImageActivity" />
-        <activity android:name=".HActivity" />
+        <activity android:name=".NetworkDemoActivity" />
+        <activity android:name=".ViewPagerDemoActivity" />
+        <activity android:name=".SingleDemoActivity" />
     </application>
-
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
 </manifest>

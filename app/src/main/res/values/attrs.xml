@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="GestureScrollView">
+        <!--<attr name="fillViewportH" format="string" />-->
+        <!--<attr name="android:orientation" />-->
+        <!--<attr name="spanCount" format="integer" />-->
+        <attr name="fillViewportH" format="boolean" />
+        <attr name="fillViewportV" format="boolean" />
+    </declare-styleable>
+
+</resources>
