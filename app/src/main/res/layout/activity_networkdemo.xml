@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <Button
+        android:id="@+id/networkDemo_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="清除缓存"/>
+
+    <FrameLayout xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+
+        <com.shizhefei.view.largeimage.LargeImageView
+            android:id="@+id/networkDemo_photoView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <io.netopen.hotbitmapgg.library.view.RingProgressBar
+            android:id="@+id/networkDemo_ringProgressBar"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_gravity="center"
+            app:max="100"
+            app:ringColor="@color/colorPrimary"
+            app:ringProgressColor="@color/colorPrimaryDark"
+            app:ringWidth="3dp"
+            app:style="FILL"
+            app:textColor="@color/colorPrimary"
+            app:textIsShow="true"
+            app:textSize="16sp" />
+
+    </FrameLayout>
+
+</LinearLayout>
