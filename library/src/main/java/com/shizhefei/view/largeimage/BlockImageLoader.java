@@ -650,6 +650,8 @@ public class BlockImageLoader {
         void onBlockImageLoadFinished();
 
         void onLoadImageSize(int imageWidth, int imageHeight);
+
+        void onLoadFail(Exception e);
     }
 
     public void destroy() {
@@ -755,11 +757,26 @@ public class BlockImageLoader {
                         loadData.mDecoder = loadData.mFactory.made();
                         loadData.mImageWidth = loadData.mDecoder.getWidth();
                         loadData.mImageHeight = loadData.mDecoder.getHeight();
-                        if (onImageLoadListener != null) {
-                            onImageLoadListener.onLoadImageSize(loadData.mImageWidth, loadData.mImageHeight);
-                        }
-                    } catch (IOException e) {
+                        final int imageWidth = loadData.mImageWidth;
+                        final int imageHeight = loadData.mImageHeight;
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (onImageLoadListener != null) {
+                                    onImageLoadListener.onLoadImageSize(imageWidth, imageHeight);
+                                }
+                            }
+                        });
+                    } catch (final IOException e) {
                         e.printStackTrace();
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (onImageLoadListener != null) {
+                                    onImageLoadListener.onLoadFail(e);
+                                }
+                            }
+                        });
                     }
                 }
             } else if (msg.what == MESSAGE_PIC) { //加载完整图片的缩略图

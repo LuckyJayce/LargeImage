@@ -341,4 +341,11 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
         }
     }
 
+    @Override
+    public void onLoadFail(Exception e) {
+        if (onImageLoadListener != null) {
+            onImageLoadListener.onLoadFail(e);
+        }
+    }
+
 }

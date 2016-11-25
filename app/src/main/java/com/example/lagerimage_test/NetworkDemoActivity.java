@@ -3,7 +3,6 @@ package com.example.lagerimage_test;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
 
@@ -19,8 +18,6 @@ import com.shizhefei.view.largeimage.factory.FileBitmapDecoderFactory;
 import java.io.File;
 
 import io.netopen.hotbitmapgg.library.view.RingProgressBar;
-
-import static android.R.attr.resource;
 
 
 public class NetworkDemoActivity extends FragmentActivity {
@@ -67,7 +64,6 @@ public class NetworkDemoActivity extends FragmentActivity {
                 super.onLoadStarted(placeholder);
                 ringProgressBar.setVisibility(View.VISIBLE);
                 ringProgressBar.setProgress(0);
-//                Log.d("wsx", "onLoadStarted");
             }
 
             @Override
@@ -76,7 +72,6 @@ public class NetworkDemoActivity extends FragmentActivity {
                 if (expectedLength >= 0) {
                     p = (int) (100 * bytesRead / expectedLength);
                 }
-                Log.d("wsx", "onProgress p：" + p + " expectedLength：" + expectedLength);
                 ringProgressBar.setProgress(p);
             }
 
@@ -85,21 +80,6 @@ public class NetworkDemoActivity extends FragmentActivity {
                 super.onResourceReady(resource, animation);
                 ringProgressBar.setVisibility(View.GONE);
                 largeImageView.setImage(new FileBitmapDecoderFactory(resource));
-                Log.d("wsx", "onResourceReady  resource：" + resource);
-            }
-
-            @Override
-            public void onLoadFailed(Exception e, Drawable errorDrawable) {
-                super.onLoadFailed(e, errorDrawable);
-                Toast.makeText(getApplicationContext(), "下载失败", Toast.LENGTH_SHORT).show();
-                Log.d("wsx", "onLoadFailed  resource：" + resource + " e:" + e);
-            }
-
-            @Override
-            public void onLoadCleared(Drawable placeholder) {
-                super.onLoadCleared(placeholder);
-                Toast.makeText(getApplicationContext(), "请求被取消", Toast.LENGTH_SHORT).show();
-                Log.d("wsx", "onLoadCleared  resource：" + resource + " e:");
             }
 
             @Override

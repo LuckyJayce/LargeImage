@@ -3,7 +3,6 @@ package com.example.lagerimage_test;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.view.ViewPager;
-import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -34,10 +33,10 @@ public class ViewPagerDemoActivity extends FragmentActivity {
             if (convertView == null) {
                 convertView = getLayoutInflater().inflate(R.layout.ttt, container, false);
             }
-            Log.d("wsx", " p:" + position + " ss[position]:" + ss[position]);
             LargeImageView largeImageView = (LargeImageView) convertView;
             try {
                 largeImageView.setImage(new InputStreamBitmapDecoderFactory(getAssets().open(ss[position])));
+
             } catch (IOException e) {
                 e.printStackTrace();
             }

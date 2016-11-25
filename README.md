@@ -1,14 +1,89 @@
 # LargeImage
-Android 加载大图  可以高清显示10000*10000像素的图片
+Android 加载大图  可以高清显示10000*10000像素的图片  
+可以滑动，放大缩小具有PhotoView的效果  
+普通图片也可以用它展示
+#Gradle
+
+ 	 compile 'com.shizhefei:LargeImageView:1.0.0'
+
+Download Demo [apk](raw/LargeImage.apk)  
+
+#效果
+
+![image](raw/demo.gif)  
+
+
+#使用方法
+
+	<com.shizhefei.view.largeimage.LargeImageView
+	    android:id="@+id/imageView"
+	    android:scrollbars="vertical|horizontal"
+	    android:layout_width="match_parent"
+	    android:layout_height="match_parent" />
+
+代码
+
+	largeImageView = (LargeImageView) findViewById(R.id.imageView);
+
+	//通过文件的方式加载sd卡中的大图
+    largeImageView.setImage(new FileBitmapDecoderFactory(file));
+
+    //通过流的方式加载assets文件夹里面的大图
+    largeImageView.setImage(new InputStreamBitmapDecoderFactory(getAssets().open(ss[position])))
+
+    //加载普通大小图片
+	largeImageView.setImage(R.drawable.cat);
+    largeImageView.setImage(drawable);
+    largeImageView.setImage(bitmap);
+
+加载网络的图片，先下载本地，再通过加载图片的文件  
+比如glide加载图片，具体代码查看demo
+
+        String url = "http://img.tuku.cn/file_big/201502/3d101a2e6cbd43bc8f395750052c8785.jpg";
+        Glide.with(this).load(url).downloadOnly(new ProgressTarget<String, File>(url, null) {
+            @Override
+            public void onLoadStarted(Drawable placeholder) {
+                super.onLoadStarted(placeholder);
+                ringProgressBar.setVisibility(View.VISIBLE);
+                ringProgressBar.setProgress(0);
+            }
+
+            @Override
+            public void onProgress(long bytesRead, long expectedLength) {
+                int p = 0;
+                if (expectedLength >= 0) {
+                    p = (int) (100 * bytesRead / expectedLength);
+                }
+                ringProgressBar.setProgress(p);
+            }
+
+            @Override
+            public void onResourceReady(File resource, GlideAnimation<? super File> animation) {
+                super.onResourceReady(resource, animation);
+                ringProgressBar.setVisibility(View.GONE);
+                largeImageView.setImage(new FileBitmapDecoderFactory(resource));
+            }
+
+            @Override
+            public void getSize(SizeReadyCallback cb) {
+                cb.onSizeReady(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL);
+            }
+        });
+
 
 #实现原理
-#监听View的显示区域的变化，然后加载显示区域内应该显示的图片区域，然后绘制到View上 #
-  
 
-###1.UpdateView负责监听显示区域的变化的View，子类通过重写onUpdateWindow(Rect visiableRect)监听显示区域，大部分代码源于SurfaceView监听代码  ###
+只加载显示的区域的图片，切成小块拼接.  
 
-### 2.ImageManager负责加载显示区域的图片块。   ###
-###3.LargeImageView负责绘制图片块   ###
+#LargeImageView 
+根据滚动和缩放事件 scrollTo 对应的位置，计算当前显示区域的图片绘制出来
+
+#UpdateImageView
+监听View的显示区域的变化，然后加载显示区域内应该显示的图片区域，然后绘制到View上  
+UpdateView负责监听显示区域的变化的View，子类通过重写onUpdateWindow(Rect visiableRect)监听显示区域，大部分代码源于SurfaceView监听代码
+
+###BlockImageLoader负责加载显示区域的图片块。   ###
+
 
 ###实现细节：  ###
 每次LargeImageView的onDraw方法都会调用ImageManagerd的getDrawData(float imageScale, Rect imageRect)方法，imageRect为在View上图片显示的区域(需要加载的图片区域)，imageScale 假设等于4的话，就是View上显示1像素，image要加载4个像素的区域（缩小4倍的图片）  
@@ -22,7 +97,7 @@ getDrawData(float imageScale, Rect imageRect)实现细节：
 -  
  
 所以我采用了基准块（图片比例是1，一个图片块的宽高的合理sise） 
-BASE_BLOCKSIZE = context.getResources().getDisplayMetrics().widthPixels / 2;  
+BASE_BLOCKSIZE = context.getResources().getDisplayMetrics().heightPixels / 2+1;  
 图片缩放比例为1的话，图片块宽高是BASE_BLOCKSIZE  
 图片缩放比例为4的话，图片块宽高是4*BASE_BLOCKSIZE  
 图片没被位移，那么屏幕上显示横向2列，纵向getDisplayMetrics().heightPixels/BASE_BLOCKSIZE行  

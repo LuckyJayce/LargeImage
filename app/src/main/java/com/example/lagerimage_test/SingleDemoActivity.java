@@ -4,6 +4,12 @@ import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 
 import com.shizhefei.view.largeimage.LargeImageView;
+import com.shizhefei.view.largeimage.factory.InputStreamBitmapDecoderFactory;
+
+import java.io.IOException;
+import java.io.InputStream;
+
+import static com.example.lagerimage_test.R.id.imageView;
 
 
 public class SingleDemoActivity extends FragmentActivity {
@@ -14,18 +20,14 @@ public class SingleDemoActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_singledemo);
 
-        largeImageView = (LargeImageView) findViewById(R.id.imageView);
-        largeImageView.setImage(R.drawable.mvc);
+        largeImageView = (LargeImageView) findViewById(imageView);
+        //        largeImageView.setImage(R.drawable.mvc);
 
-//        try {
-//            BitmapFactory.Options options =  new BitmapFactory.Options();
-//            options.inSampleSize = 4;
-//            Rect outPadding = new Rect();
-//            Bitmap d = BitmapFactory.decodeStream(getAssets().open("mvc.png"),outPadding,options);
-//
-//            imageView.setImage(new InputStreamBitmapDecoderFactory(getAssets().open("mvc.png")), new BitmapDrawable(getResources(),d));
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+        try {
+            InputStream inputStream = getAssets().open("111.jpg");
+            largeImageView.setImage(new InputStreamBitmapDecoderFactory(inputStream));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
