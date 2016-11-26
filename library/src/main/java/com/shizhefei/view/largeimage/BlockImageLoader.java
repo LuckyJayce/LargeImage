@@ -120,7 +120,7 @@ public class BlockImageLoader {
         //如果还没有加载好，返回空列表
         LoadData loadData = mLoadData;
         if (loadData == null || loadData.mDecoder == null) {
-            return new ArrayList<DrawData>(0);
+            return new ArrayList<>(0);
         }
         //图片的宽高
         int imageWidth = loadData.mImageWidth;
@@ -134,7 +134,7 @@ public class BlockImageLoader {
         int cacheImageScale = loadData.mCacheImageScale;
 
         //方法要返回出去的图片绘制数据
-        List<DrawData> drawDatas = new ArrayList<DrawData>();
+        List<DrawData> drawDatas = new ArrayList<>();
 
         //避免图片区域超出图片实际大小
         if (imageRect.left < 0) {

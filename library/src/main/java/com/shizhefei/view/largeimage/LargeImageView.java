@@ -32,6 +32,8 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.view.ViewConfiguration;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.DecelerateInterpolator;
 
 import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 
@@ -50,7 +52,6 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     private final ScaleGestureDetector scaleGestureDetector;
     private int mDrawableWidth;
     private int mDrawableHeight;
-    private volatile Runnable runnable;
     private float mScale = 1;
     private BitmapDecoderFactory mFactory;
     private float fitScale;
@@ -59,6 +60,9 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     private BlockImageLoader.OnImageLoadListener mOnImageLoadListener;
     private Drawable mDrawable;
     private int mLevel;
+    private ScaleHelper scaleHelper;
+    private AccelerateInterpolator accelerateInterpolator;
+    private DecelerateInterpolator decelerateInterpolator;
 
     public LargeImageView(Context context) {
         this(context, null);
@@ -71,6 +75,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     public LargeImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mScroller = ScrollerCompat.create(getContext(), null);
+        scaleHelper = new ScaleHelper();
         setFocusable(true);
         setWillNotDraw(false);
         gestureDetector = new GestureDetector(context, simpleOnGestureListener);
@@ -93,21 +98,22 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     @Override
     public void computeScroll() {
         super.computeScroll();
+        if (scaleHelper.computeScrollOffset()) {
+            setScale(scaleHelper.getCurScale(), scaleHelper.getStartX(), scaleHelper.getStartY());
+        }
         if (mScroller.computeScrollOffset()) {
-            if (mScroller.computeScrollOffset()) {
-                int oldX = getScrollX();
-                int oldY = getScrollY();
-                int x = mScroller.getCurrX();
-                int y = mScroller.getCurrY();
-                if (oldX != x || oldY != y) {
-                    final int rangeY = getScrollRangeY();
-                    final int rangeX = getScrollRangeX();
-                    overScrollByCompat(x - oldX, y - oldY, oldX, oldY, rangeX, rangeY,
-                            0, 0, false);
-                }
-                if (!mScroller.isFinished()) {
-                    notifyInvalidate();
-                }
+            int oldX = getScrollX();
+            int oldY = getScrollY();
+            int x = mScroller.getCurrX();
+            int y = mScroller.getCurrY();
+            if (oldX != x || oldY != y) {
+                final int rangeY = getScrollRangeY();
+                final int rangeX = getScrollRangeX();
+                overScrollByCompat(x - oldX, y - oldY, oldX, oldY, rangeX, rangeY,
+                        0, 0, false);
+            }
+            if (!mScroller.isFinished()) {
+                notifyInvalidate();
             }
         }
     }
@@ -354,7 +360,6 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
             float imageScale = imgWidth / width;
 
             // 需要显示的图片的实际宽度。
-            Rect imageRect = new Rect();
             imageRect.left = (int) Math.ceil((left - mOffsetX) * imageScale);
             imageRect.top = (int) Math.ceil((top - mOffsetY) * imageScale);
             imageRect.right = (int) Math.ceil((right - mOffsetX) * imageScale);
@@ -374,6 +379,8 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
             canvas.restoreToCount(saveCount);
         }
     }
+
+    private Rect imageRect = new Rect();
 
     @Override
     public void onBlockImageLoadFinished() {
@@ -615,10 +622,26 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
             } else {
                 newScale = 1;
             }
-            setScale(newScale, e.getX(), e.getY());
+            smoothScale(newScale, (int) e.getX(), (int) e.getY());
             return true;
         }
     };
+
+
+    public void smoothScale(float newScale, int centerX, int centerY) {
+        if (mScale > newScale) {
+            if (accelerateInterpolator == null) {
+                accelerateInterpolator = new AccelerateInterpolator();
+            }
+            scaleHelper.startScale(mScale, newScale, centerX, centerY, accelerateInterpolator);
+        } else {
+            if (decelerateInterpolator == null) {
+                decelerateInterpolator = new DecelerateInterpolator();
+            }
+            scaleHelper.startScale(mScale, newScale, centerX, centerY, decelerateInterpolator);
+        }
+        notifyInvalidate();
+    }
 
     private ScaleGestureDetector.OnScaleGestureListener onScaleGestureListener = new ScaleGestureDetector.OnScaleGestureListener() {
         @Override
@@ -633,7 +656,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
             } else if (newScale < minScale) {
                 newScale = minScale;
             }
-            setScale(newScale, detector.getFocusX(), detector.getFocusY());
+            setScale(newScale, (int) detector.getFocusX(), (int) detector.getFocusY());
             return true;
         }
 
@@ -650,7 +673,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
 
     @Override
     public void setScale(float scale) {
-        setScale(scale, getMeasuredWidth() / 2, getMeasuredHeight() / 2);
+        setScale(scale, getMeasuredWidth() >> 1, getMeasuredHeight() >> 1);
     }
 
     @Override
@@ -658,13 +681,16 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         return mScale;
     }
 
-    private void setScale(float scale, float x, float y) {
+    public void setScale(float scale, int centerX, int centerY) {
+        if (!hasLoad()) {
+            return;
+        }
         float preScale = mScale;
         mScale = scale;
         int sX = getScrollX();
         int sY = getScrollY();
-        int dx = (int) ((sX + x) * (scale / preScale - 1));
-        int dy = (int) ((sY + y) * (scale / preScale - 1));
+        int dx = (int) ((sX + centerX) * (scale / preScale - 1));
+        int dy = (int) ((sY + centerY) * (scale / preScale - 1));
         overScrollByCompat(dx, dy, sX, sY, getScrollRangeX(), getScrollRangeY(), 0, 0, false);
         notifyInvalidate();
     }
