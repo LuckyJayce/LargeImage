@@ -449,6 +449,10 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
                 minScale = a;
             }
         }
+        if (criticalScaleValueHook != null) {
+            minScale = criticalScaleValueHook.getMinScale(this, imageWidth, imageHeight, minScale);
+            maxScale = criticalScaleValueHook.getMaxScale(this, imageWidth, imageHeight, maxScale);
+        }
     }
 
     private void notifyInvalidate() {
@@ -565,6 +569,58 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         }
     }
 
+    private OnClickListener onClickListener;
+    private OnLongClickListener onLongClickListener;
+
+    @Override
+    public void setOnClickListener(OnClickListener l) {
+        super.setOnClickListener(l);
+        this.onClickListener = l;
+    }
+
+    @Override
+    public void setOnLongClickListener(OnLongClickListener l) {
+        super.setOnLongClickListener(l);
+        this.onLongClickListener = l;
+    }
+
+    public void setCriticalScaleValueHook(CriticalScaleValueHook criticalScaleValueHook) {
+        this.criticalScaleValueHook = criticalScaleValueHook;
+    }
+
+    private CriticalScaleValueHook criticalScaleValueHook;
+
+    /**
+     * Hook临界值
+     */
+    public interface CriticalScaleValueHook {
+
+        /**
+         * 返回最小的缩放倍数
+         * scale为1的话表示，显示的图片和View一样宽
+         *
+         * @param largeImageView
+         * @param imageWidth
+         * @param imageHeight
+         * @param suggestMinScale 默认建议的最小的缩放倍数
+         * @return
+         */
+        float getMinScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMinScale);
+
+        /**
+         * 返回最大的缩放倍数
+         * scale为1的话表示，显示的图片和View一样宽
+         *
+         * @param largeImageView
+         * @param imageWidth
+         * @param imageHeight
+         * @param suggestMaxScale 默认建议的最大的缩放倍数
+         * @return
+         */
+        float getMaxScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMaxScale);
+
+    }
+
     private GestureDetector.SimpleOnGestureListener simpleOnGestureListener = new GestureDetector.SimpleOnGestureListener() {
 
         @Override
@@ -581,22 +637,34 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         }
 
         @Override
-        public boolean onSingleTapUp(MotionEvent e) {
-            return false;
+        public boolean onSingleTapConfirmed(MotionEvent e) {
+            if (onClickListener != null && isClickable()) {
+                onClickListener.onClick(LargeImageView.this);
+            }
+            return true;
         }
 
+        @Override
         public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
+            if (!isEnabled()) {
+                return false;
+            }
             overScrollByCompat((int) distanceX, (int) distanceY, getScrollX(), getScrollY(), getScrollRangeX(), getScrollRangeY(), 0, 0, false);
             return true;
         }
 
         @Override
         public void onLongPress(MotionEvent e) {
-
+            if (onLongClickListener != null && isLongClickable()) {
+                onLongClickListener.onLongClick(LargeImageView.this);
+            }
         }
 
         @Override
         public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+            if (!isEnabled()) {
+                return false;
+            }
             fling((int) -velocityX, (int) -velocityY);
             return true;
         }
@@ -646,6 +714,9 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     private ScaleGestureDetector.OnScaleGestureListener onScaleGestureListener = new ScaleGestureDetector.OnScaleGestureListener() {
         @Override
         public boolean onScale(ScaleGestureDetector detector) {
+            if (!isEnabled()) {
+                return false;
+            }
             if (!hasLoad()) {
                 return false;
             }

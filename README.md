@@ -4,13 +4,13 @@ Android 加载大图  可以高清显示10000*10000像素的图片
 普通图片也可以用它展示
 #Gradle
 
- 	 compile 'com.shizhefei:LargeImageView:1.0.3'
+ 	 compile 'com.shizhefei:LargeImageView:1.0.4'
 
-Download Demo [apk](raw/LargeImage.apk)  
+Download Demo [apk](raw/LargeImage.apk)
 
 #效果
 
-![image](raw/demo.gif)  
+![image](raw/demo.gif)
 
 
 #使用方法
@@ -35,6 +35,63 @@ Download Demo [apk](raw/LargeImage.apk)
 	largeImageView.setImage(R.drawable.cat);
     largeImageView.setImage(drawable);
     largeImageView.setImage(bitmap);
+
+支持的事件
+
+        largeImageView.setOnClickListener(onClickListener);
+        largeImageView.setOnLongClickListener(onLongClickListener);
+设置是否可以缩放
+
+     largeImageView.setEnabled(true);
+
+Hook临界值(不设置的话会使用默认的计算缩放最小倍数和最大倍数)
+
+
+    /**
+     * Hook临界值
+     */
+    public interface CriticalScaleValueHook {
+
+        /**
+         * 返回最小的缩放倍数
+         * scale为1的话表示，显示的图片和View一样宽
+         *
+         * @param largeImageView
+         * @param imageWidth
+         * @param imageHeight
+         * @param suggestMinScale 默认建议的最小的缩放倍数
+         * @return
+         */
+        float getMinScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMinScale);
+
+        /**
+         * 返回最大的缩放倍数
+         * scale为1的话表示，显示的图片和View一样宽
+         *
+         * @param largeImageView
+         * @param imageWidth
+         * @param imageHeight
+         * @param suggestMaxScale 默认建议的最大的缩放倍数
+         * @return
+         */
+        float getMaxScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMaxScale);
+
+    }
+
+例如
+
+       largeImageView.setCriticalScaleValueHook(new LargeImageView.CriticalScaleValueHook() {
+            @Override
+            public float getMinScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMinScale) {
+                return 1;
+            }
+
+            @Override
+            public float getMaxScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMaxScale) {
+                return 4;
+            }
+        });
+
 
 加载网络的图片，先下载本地，再通过加载图片的文件  
 比如glide加载图片，具体代码查看demo
