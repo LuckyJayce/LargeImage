@@ -1,10 +1,6 @@
 # LargeImage
 Android 加载大图  可以高清显示10000*10000像素的图片
 
-# 说明   
-其中 android-gesture-detectors-lib 手势类库  
-源地址https://github.com/Almeros/android-gesture-detectors   
-
 # 联系方式和问题建议
 
 * 微博:http://weibo.com/u/3181073384
