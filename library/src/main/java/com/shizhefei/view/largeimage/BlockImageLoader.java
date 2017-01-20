@@ -47,12 +47,15 @@ public class BlockImageLoader {
 
     private Context context;
 
-    private Handler mainHandler;
+    private MainHandler mainHandler;
+
+    private static final boolean DEBUG = false;
+    private static final String TAG = "BlockImageLoader";
 
     public BlockImageLoader(Context context) {
         super();
         this.context = context;
-        this.mainHandler = new Handler(Looper.getMainLooper());
+        this.mainHandler = new MainHandler();
         // width = getNearScale(width);
         int size = context.getResources().getDisplayMetrics().heightPixels / 2 + 1;
         BASE_BLOCKSIZE = size + (size % 2 == 0 ? 0 : 1);
@@ -87,7 +90,6 @@ public class BlockImageLoader {
     }
 
     private HandlerThread handlerThread;
-    private LoadHandler handler;
 
     public boolean hasLoad() {
         LoadData loadData = mLoadData;
@@ -160,7 +162,7 @@ public class BlockImageLoader {
                 if (cacheImageScale < s) {
                     cacheImageScale *= 2;
                 }
-                handler.sendMessage(handler.obtainMessage(MESSAGE_PIC, cacheImageScale));
+                loadData.handler.sendMessage(loadData.handler.obtainMessage(MESSAGE_PIC, cacheImageScale));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -256,7 +258,7 @@ public class BlockImageLoader {
         Set<Position> needShowPositions = new HashSet<Position>();
 
         // 移除掉之前的任务
-        handler.removeMessages(preMessageWhat);
+        loadData.handler.removeMessages(preMessageWhat);
         int what = preMessageWhat == MESSAGE_BLOCK_1 ? MESSAGE_BLOCK_2 : MESSAGE_BLOCK_1;
         preMessageWhat = what;
 
@@ -286,7 +288,7 @@ public class BlockImageLoader {
                 for (int col = startCol; col < endCol; col++) {
                     Position position = new Position(row, col);
                     needShowPositions.add(position);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
 
@@ -306,14 +308,14 @@ public class BlockImageLoader {
             for (int row = cacheStartRow; row < startRow; row++) {
                 for (int col = cacheStartCol; col < cacheEndCol; col++) {
                     Position position = new Position(row, col);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             // 下 #########
             for (int row = endRow + 1; row < cacheEndRow; row++) {
                 for (int col = cacheStartCol; col < cacheEndCol; col++) {
                     Position position = new Position(row, col);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             // # 左
@@ -321,7 +323,7 @@ public class BlockImageLoader {
             for (int row = startRow; row < endRow; row++) {
                 for (int col = cacheStartCol; col < startCol; col++) {
                     Position position = new Position(row, col);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             // # 右
@@ -329,7 +331,7 @@ public class BlockImageLoader {
             for (int row = startRow; row < endRow; row++) {
                 for (int col = endRow + 1; col < cacheEndRow; col++) {
                     Position position = new Position(row, col);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
         } else {
@@ -344,7 +346,7 @@ public class BlockImageLoader {
                     if (bitmap == null) {
                         //记录没有加载到的图片块，再后面的代码有用到
                         needShowPositions.add(position);
-                        handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                        loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                     } else {
                         usePositions.add(position);
                         Rect rect = madeRect(bitmap, row, col, scale, imageScale);
@@ -357,7 +359,7 @@ public class BlockImageLoader {
                 for (int col = cacheStartCol; col < cacheEndCol; col++) {
                     Position position = new Position(row, col);
                     usePositions.add(position);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             // 下 #########
@@ -365,7 +367,7 @@ public class BlockImageLoader {
                 for (int col = cacheStartCol; col < cacheEndCol; col++) {
                     Position position = new Position(row, col);
                     usePositions.add(position);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             // # 左
@@ -374,7 +376,7 @@ public class BlockImageLoader {
                 for (int col = cacheStartCol; col < startCol; col++) {
                     Position position = new Position(row, col);
                     usePositions.add(position);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             // # 右
@@ -383,7 +385,7 @@ public class BlockImageLoader {
                 for (int col = endRow + 1; col < cacheEndRow; col++) {
                     Position position = new Position(row, col);
                     usePositions.add(position);
-                    handler.sendMessage(handler.obtainMessage(what, new MessageData(position, scale)));
+                    loadData.handler.sendMessage(loadData.handler.obtainMessage(what, new MessageData(position, scale)));
                 }
             }
             //移除掉那些没被用到的缓存的图片块
@@ -654,14 +656,56 @@ public class BlockImageLoader {
         void onLoadFail(Exception e);
     }
 
-    public void destroy() {
-        if (handlerThread != null) {
-            handlerThread.quit();
-            handlerThread = null;
-            handler = null;
-        }
+    /**
+     * 加载图片
+     *
+     * @param factory
+     */
+    public void load(BitmapDecoderFactory factory) {
+        //移除掉停止线程的message
+        mainHandler.removeMessages(MESSAGE_DESTROY);
         mainHandler.removeCallbacksAndMessages(null);
-        release(this.mLoadData);
+        if (handlerThread == null) {
+            if (DEBUG)
+                Log.d(TAG, "new thread");
+            handlerThread = new HandlerThread("111");
+            handlerThread.start();
+        }
+        release(mLoadData);
+        //创建一个新的handler，去发消息到handlerThread线程
+        LoadHandler handler = new LoadHandler(handlerThread.getLooper());
+        this.mLoadData = new LoadData(handler, factory);
+        //发送加载图片的消息
+        handler.sendEmptyMessage(MESSAGE_LOAD);
+    }
+
+    /**
+     * 释放图片，以及发送一个message 去停止线程
+     */
+    public void destroy() {
+        if (mLoadData != null) {
+            release(mLoadData);
+            //根据队列的性质，下个message在上个recycle的message之后执行，recycle之后再停止线程
+            mLoadData.handler.sendEmptyMessage(MESSAGE_DESTROY);
+        }
+        mLoadData = null;
+    }
+
+    private void release(LoadData loadData) {
+        if (loadData != null) {
+            LoadHandler handler = loadData.handler;
+            if (handler != null) {
+                handler.removeCallbacksAndMessages(null);
+            }
+            if (loadData.mDecoder != null) {
+                Message message = handler.obtainMessage(MESSAGE_RELEASE, loadData.mDecoder);
+                handler.sendMessage(message);
+            }
+        }
+    }
+
+    public int getBASE_BLOCKSIZE() {
+        return BASE_BLOCKSIZE;
     }
 
     public int getWidth() {
@@ -674,48 +718,23 @@ public class BlockImageLoader {
 
     private volatile LoadData mLoadData;
 
-    public void load(BitmapDecoderFactory factory) {
-        if (handlerThread == null) {
-            handlerThread = new HandlerThread("111");
-            handlerThread.start();
-            handler = new LoadHandler(handlerThread.getLooper());
-        }
-        LoadData loadData = mLoadData;
-        if (loadData != null && loadData.mFactory != null) {
-            release(loadData);
-        }
-        this.mLoadData = new LoadData(factory);
-        if (handler != null) {
-            handler.removeCallbacksAndMessages(null);
-            handler.sendEmptyMessage(MESSAGE_LOAD);
-        }
-    }
-
-    private void release(LoadData loadData) {
-        if (loadData == null) {
-            return;
-        }
-        if (loadData.mDecoder != null) {
-            try {
-                loadData.mDecoder.recycle();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            loadData.mDecoder = null;
-        }
-    }
 
     public static final int MESSAGE_PIC = 665;
     public static final int MESSAGE_LOAD = 666;
     public static final int MESSAGE_BLOCK_1 = 1;
     public static final int MESSAGE_BLOCK_2 = 2;
+    public static final int MESSAGE_RELEASE = 667;
+    public static final int MESSAGE_DESTROY = 668;
 
     /**
      * 用于存放图片信息数据以及图片缓存块
      */
     private static class LoadData {
-        public LoadData(BitmapDecoderFactory factory) {
+        private LoadHandler handler;
+
+        public LoadData(LoadHandler handler, BitmapDecoderFactory factory) {
             this.mFactory = factory;
+            this.handler = handler;
         }
 
         /**
@@ -739,6 +758,25 @@ public class BlockImageLoader {
         private volatile int mImageWidth;
         private volatile BitmapDecoderFactory mFactory;
         private volatile BitmapRegionDecoder mDecoder;
+    }
+
+    private class MainHandler extends Handler {
+        public MainHandler() {
+            super(Looper.getMainLooper());
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            if (msg.what == MESSAGE_DESTROY) {
+                if (DEBUG)
+                    Log.d(TAG, "quite thread");
+                if (handlerThread != null) {
+                    handlerThread.quit();
+                    handlerThread = null;
+                }
+            }
+        }
     }
 
     private class LoadHandler extends Handler {
@@ -779,6 +817,20 @@ public class BlockImageLoader {
                         });
                     }
                 }
+            } else if (msg.what == MESSAGE_RELEASE) {
+                BitmapRegionDecoder decoder = (BitmapRegionDecoder) msg.obj;
+                long time = System.currentTimeMillis();
+                if (decoder != null) {
+                    try {
+                        decoder.recycle();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                if (DEBUG)
+                    Log.d(TAG, "release time:" + (System.currentTimeMillis() - time));
+            } else if (msg.what == MESSAGE_DESTROY) {
+                mainHandler.sendEmptyMessageDelayed(MESSAGE_DESTROY, 3000);
             } else if (msg.what == MESSAGE_PIC) { //加载完整图片的缩略图
                 Integer scale = (Integer) msg.obj;
                 Options decodingOptions = new Options();
@@ -837,7 +889,8 @@ public class BlockImageLoader {
                             });
                         }
                     } catch (Exception e) {
-                        Log.d("nnnn", position.toString() + " " + clipImageRect.toShortString());
+                        if (DEBUG)
+                            Log.d(TAG, position.toString() + " " + clipImageRect.toShortString());
                         e.printStackTrace();
                     }
                 }

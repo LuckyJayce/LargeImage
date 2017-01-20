@@ -121,6 +121,9 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        if (mFactory != null) {
+            imageBlockLoader.load(mFactory);
+        }
         if (mDrawable != null) {
             mDrawable.setVisible(getVisibility() == VISIBLE, false);
         }

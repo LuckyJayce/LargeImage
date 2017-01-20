@@ -9,6 +9,7 @@ public class MainActivity extends FragmentActivity {
     private View singleDemoButton;
     private View networkDemoButton;
     private View viewPagerDemoButton;
+    private View listButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -17,10 +18,12 @@ public class MainActivity extends FragmentActivity {
         singleDemoButton = findViewById(R.id.main_singleDemo_button);
         viewPagerDemoButton = findViewById(R.id.main_viewPagerDemo_button);
         networkDemoButton = findViewById(R.id.main_networkDemo_button);
+        listButton = findViewById(R.id.main_list_button);
 
         singleDemoButton.setOnClickListener(onClickListener);
         viewPagerDemoButton.setOnClickListener(onClickListener);
         networkDemoButton.setOnClickListener(onClickListener);
+        listButton.setOnClickListener(onClickListener);
     }
 
     private View.OnClickListener onClickListener = new View.OnClickListener() {
@@ -32,6 +35,8 @@ public class MainActivity extends FragmentActivity {
                 startActivity(new Intent(getApplicationContext(),ViewPagerDemoActivity.class));
             } else if (v == networkDemoButton) {
                 startActivity(new Intent(getApplicationContext(),NetworkDemoActivity.class));
+            }else if(v==listButton){
+                startActivity(new Intent(getApplicationContext(),ListImageActivity.class));
             }
         }
     };

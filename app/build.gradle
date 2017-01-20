@@ -17,6 +17,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    lintOptions {
+        abortOnError false
+    }
 }
 
 dependencies {
@@ -29,4 +32,5 @@ dependencies {
     compile 'com.squareup.okhttp3:okhttp:3.4.2'
     compile 'com.github.HotBitmapGG:RingProgressBar:V1.2.2'
     compile project(':library')
+    compile 'com.android.support:recyclerview-v7:24.0.0'
 }

@@ -25,4 +25,11 @@
         android:layout_marginTop="20dp"
         android:text="加载网络的大图片" />
 
+    <Button
+        android:id="@+id/main_list_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="列表" />
+
 </LinearLayout>

@@ -29,6 +29,9 @@
         <activity android:name=".NetworkDemoActivity" />
         <activity android:name=".ViewPagerDemoActivity" />
         <activity android:name=".SingleDemoActivity" />
+        <activity
+            android:name=".ListImageActivity"
+            android:label="@string/title_activity_list_imgae"></activity>
     </application>
 
 </manifest>
