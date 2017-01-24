@@ -25,6 +25,8 @@ interface ILargeImageView {
 
     void setImage(Bitmap bm);
 
+    void setImage(Drawable drawable);
+
     void setImage(@DrawableRes int resId);
 
     void setImageDrawable(Drawable drawable);

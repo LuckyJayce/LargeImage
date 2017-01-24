@@ -21,9 +21,9 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ScrollerCompat;
 import android.util.AttributeSet;
@@ -63,6 +63,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     private ScaleHelper scaleHelper;
     private AccelerateInterpolator accelerateInterpolator;
     private DecelerateInterpolator decelerateInterpolator;
+    private boolean isAttachedWindow;
 
     public LargeImageView(Context context) {
         this(context, null);
@@ -157,6 +158,11 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     }
 
     @Override
+    public void setImage(Drawable drawable) {
+        setImageDrawable(drawable);
+    }
+
+    @Override
     public void setImage(@DrawableRes int resId) {
         setImageDrawable(ContextCompat.getDrawable(getContext(), resId));
     }
@@ -191,25 +197,38 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         if (defaultDrawable != null) {
             onLoadImageSize(defaultDrawable.getIntrinsicWidth(), defaultDrawable.getIntrinsicHeight());
         }
-        imageBlockLoader.load(factory);
+        imageBlockLoader.setBitmapDecoderFactory(factory);
+        invalidate();
     }
 
     private void updateDrawable(Drawable d) {
         if (mDrawable != null) {
             mDrawable.setCallback(null);
             unscheduleDrawable(mDrawable);
+            if (isAttachedWindow) {
+                mDrawable.setVisible(false, false);
+            }
         }
         mDrawable = d;
+
         if (d != null) {
             d.setCallback(this);
-            DrawableCompat.setLayoutDirection(d, DrawableCompat.getLayoutDirection(d));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                d.setLayoutDirection(getLayoutDirection());
+            }
             if (d.isStateful()) {
                 d.setState(getDrawableState());
             }
-            d.setVisible(getVisibility() == VISIBLE, true);
+            if (isAttachedWindow) {
+                d.setVisible(getWindowVisibility() == VISIBLE && isShown(), true);
+            }
             d.setLevel(mLevel);
             mDrawableWidth = d.getIntrinsicWidth();
             mDrawableHeight = d.getIntrinsicHeight();
+//            applyImageTint();
+//            applyColorMod();
+//
+//            configureBounds();
         } else {
             mDrawableWidth = mDrawableHeight = -1;
         }
@@ -329,9 +348,6 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
             return;
         }
-        if (!hasLoad()) {
-            return;
-        }
         int drawOffsetX = 0;
         int drawOffsetY = 0;
         int contentWidth = getContentWidth();
@@ -365,7 +381,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
             imageRect.right = (int) Math.ceil((right - mOffsetX) * imageScale);
             imageRect.bottom = (int) Math.ceil((bottom - mOffsetY) * imageScale);
 
-            List<BlockImageLoader.DrawData> drawData = imageBlockLoader.getDrawData(imageScale, imageRect);
+            List<BlockImageLoader.DrawData> drawData = imageBlockLoader.loadImageBlocks(imageScale, imageRect);
 
             int saveCount = canvas.save();
             for (BlockImageLoader.DrawData data : drawData) {
@@ -463,9 +479,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (mFactory != null) {
-            imageBlockLoader.load(mFactory);
-        }
+        isAttachedWindow = false;
         if (mDrawable != null) {
             mDrawable.setVisible(getVisibility() == VISIBLE, false);
         }
@@ -474,7 +488,8 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        imageBlockLoader.destroy();
+        isAttachedWindow = true;
+        imageBlockLoader.quit();
         if (mDrawable != null) {
             mDrawable.setVisible(false, false);
         }
@@ -565,8 +580,8 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     }
 
     @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
         if (hasLoad()) {
             initFitImageScale(mDrawableWidth, mDrawableHeight);
         }
