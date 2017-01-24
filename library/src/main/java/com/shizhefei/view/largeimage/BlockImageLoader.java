@@ -112,9 +112,6 @@ public class BlockImageLoader {
      * @param factory
      */
     public void setBitmapDecoderFactory(BitmapDecoderFactory factory) {
-        //移除掉停止线程的message
-        mainHandler.removeMessages(MESSAGE_QUIT_THREAD);
-        mainHandler.removeCallbacksAndMessages(null);
         if (mLoadData != null) {
             LoadHandler handler = mLoadData.handler;
             if (handler != null) {
@@ -142,6 +139,12 @@ public class BlockImageLoader {
         LoadData loadData = mLoadData;
         if (loadData == null) {
             return Collections.EMPTY_LIST;
+        }
+
+        //移除掉停止线程的message
+        if (hasSendQuit) {
+            mainHandler.removeMessages(MESSAGE_QUIT_THREAD);
+            hasSendQuit = false;
         }
 
         if (handlerThread == null) {
@@ -706,8 +709,11 @@ public class BlockImageLoader {
                 handler.removeCallbacksAndMessages(null);
             }
         }
+        hasSendQuit = true;
         mainHandler.sendEmptyMessageDelayed(MESSAGE_QUIT_THREAD, 5000);
     }
+
+    private boolean hasSendQuit;
 
     public int getBASE_BLOCKSIZE() {
         return BASE_BLOCKSIZE;

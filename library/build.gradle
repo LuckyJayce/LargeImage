@@ -8,8 +8,8 @@ android {
     defaultConfig {
         minSdkVersion 10
         targetSdkVersion 24
-        versionCode 7
-        versionName "1.0.6"
+        versionCode 8
+        versionName "1.0.7"
     }
     buildTypes {
         release {
@@ -32,7 +32,7 @@ publish {
     userOrg = 'luckyjayce'//bintray.com用户名
     groupId = 'com.shizhefei'//jcenter上的路径
     artifactId = 'LargeImageView'//项目名称
-    publishVersion = '1.0.6'//版本号
+    publishVersion = '1.0.7'//版本号
     desc = 'display large image,can scale and move image'//描述，不重要
     website = 'https://github.com/LuckyJayce/LargeImageView'//网站，不重要；尽量模拟github上的地址，例如我这样的；当然你有地址最好了
 }
