@@ -239,6 +239,18 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         return scrollRange;
     }
 
+    public float getMinScale(){
+        return minScale;
+    }
+
+    public float getMaxScale(){
+        return maxScale;
+    }
+
+    public float getFitScale(){
+        return fitScale;
+    }
+
     @Override
     public int getImageWidth() {
         if (mDrawable != null) {
@@ -641,6 +653,9 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
 
         @Override
         public boolean onSingleTapConfirmed(MotionEvent e) {
+            if (!isEnabled()) {
+                return false;
+            }
             if (onClickListener != null && isClickable()) {
                 onClickListener.onClick(LargeImageView.this);
             }
@@ -658,6 +673,9 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
 
         @Override
         public void onLongPress(MotionEvent e) {
+            if (!isEnabled()) {
+                return;
+            }
             if (onLongClickListener != null && isLongClickable()) {
                 onLongClickListener.onLongClick(LargeImageView.this);
             }
@@ -674,22 +692,30 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
 
         @Override
         public boolean onDoubleTap(MotionEvent e) {
+            if (!isEnabled()) {
+                return false;
+            }
+            if (onDoubleClickListener != null && onDoubleClickListener.onDoubleClick(LargeImageView.this, e)) {
+                return true;
+            }
             if (!hasLoad()) {
                 return false;
+            }
+            float doubleScale;
+            if (fitScale < 2) {
+                doubleScale = 2;
+            } else {
+                if (fitScale > maxScale) {
+                    doubleScale = maxScale;
+                } else {
+                    doubleScale = fitScale;
+                }
             }
             float newScale;
             if (mScale < 1) {
                 newScale = 1;
-            } else if (mScale < fitScale && fitScale < maxScale) {
-                newScale = fitScale;
-            } else if (mScale < maxScale / 2 && mScale < 1.5f) {
-                if (maxScale / 2 < 1.5f) {
-                    newScale = 1.5f;
-                } else {
-                    newScale = maxScale / 2;
-                }
-            } else if (mScale < maxScale) {
-                newScale = maxScale;
+            } else if (mScale < doubleScale) {
+                newScale = doubleScale;
             } else {
                 newScale = 1;
             }
@@ -769,4 +795,17 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         notifyInvalidate();
     }
 
+    public OnDoubleClickListener getOnDoubleClickListener() {
+        return onDoubleClickListener;
+    }
+
+    public void setOnDoubleClickListener(OnDoubleClickListener onDoubleClickListener) {
+        this.onDoubleClickListener = onDoubleClickListener;
+    }
+
+    public interface OnDoubleClickListener {
+        boolean onDoubleClick(LargeImageView view, MotionEvent event);
+    }
+
+    private OnDoubleClickListener onDoubleClickListener;
 }

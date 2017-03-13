@@ -6,10 +6,22 @@
     android:orientation="vertical">
 
     <Button
-        android:id="@+id/main_singleDemo_button"
+        android:id="@+id/main_singleDemoV_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="单个大图片" />
+        android:text="纵向长图" />
+
+    <Button
+        android:id="@+id/main_singleDemoH_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="横向长图" />
+
+    <Button
+        android:id="@+id/main_singleDemoN_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="普通图片" />
 
     <Button
         android:id="@+id/main_viewPagerDemo_button"

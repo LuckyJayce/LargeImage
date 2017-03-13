@@ -6,21 +6,27 @@ import android.support.v4.app.FragmentActivity;
 import android.view.View;
 
 public class MainActivity extends FragmentActivity {
-    private View singleDemoButton;
     private View networkDemoButton;
     private View viewPagerDemoButton;
     private View listButton;
+    private View singleDemoVButton;
+    private View singleDemoHButton;
+    private View singleDemoNButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        singleDemoButton = findViewById(R.id.main_singleDemo_button);
+        singleDemoVButton = findViewById(R.id.main_singleDemoV_button);
+        singleDemoHButton = findViewById(R.id.main_singleDemoH_button);
+        singleDemoNButton = findViewById(R.id.main_singleDemoN_button);
         viewPagerDemoButton = findViewById(R.id.main_viewPagerDemo_button);
         networkDemoButton = findViewById(R.id.main_networkDemo_button);
         listButton = findViewById(R.id.main_list_button);
 
-        singleDemoButton.setOnClickListener(onClickListener);
+        singleDemoVButton.setOnClickListener(onClickListener);
+        singleDemoHButton.setOnClickListener(onClickListener);
+        singleDemoNButton.setOnClickListener(onClickListener);
         viewPagerDemoButton.setOnClickListener(onClickListener);
         networkDemoButton.setOnClickListener(onClickListener);
         listButton.setOnClickListener(onClickListener);
@@ -29,8 +35,18 @@ public class MainActivity extends FragmentActivity {
     private View.OnClickListener onClickListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
-            if (v == singleDemoButton) {
-                startActivity(new Intent(getApplicationContext(),SingleDemoActivity.class));
+            if (v == singleDemoNButton) {
+                Intent intent = new Intent(getApplicationContext(),SingleDemoActivity.class);
+                intent.putExtra("file_name","111.jpg");
+                startActivity(intent);
+            }else  if (v == singleDemoVButton) {
+                Intent intent = new Intent(getApplicationContext(),SingleDemoActivity.class);
+                intent.putExtra("file_name","ccc.jpg");
+                startActivity(intent);
+            }else  if (v == singleDemoHButton) {
+                Intent intent = new Intent(getApplicationContext(),SingleDemoActivity.class);
+                intent.putExtra("file_name","aaa.jpg");
+                startActivity(intent);
             } else if (v == viewPagerDemoButton) {
                 startActivity(new Intent(getApplicationContext(),ViewPagerDemoActivity.class));
             } else if (v == networkDemoButton) {

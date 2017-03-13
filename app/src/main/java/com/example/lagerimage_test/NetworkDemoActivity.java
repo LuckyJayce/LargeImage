@@ -57,7 +57,7 @@ public class NetworkDemoActivity extends FragmentActivity {
             }
         });
 
-        String url = "http://img.tuku.cn/file_big/201502/3d101a2e6cbd43bc8f395750052c8785.jpg";
+        String url = "http://short.im.rockhippo.cn/uploads/msg/201703/20170309/1485/1489068660846.jpg";
         Glide.with(this).load(url).downloadOnly(new ProgressTarget<String, File>(url, null) {
             @Override
             public void onLoadStarted(Drawable placeholder) {

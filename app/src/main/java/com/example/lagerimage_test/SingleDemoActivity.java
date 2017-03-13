@@ -2,6 +2,7 @@ package com.example.lagerimage_test;
 
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.Toast;
@@ -31,23 +32,17 @@ public class SingleDemoActivity extends FragmentActivity {
         toggleButton.setOnCheckedChangeListener(onCheckedChangeListener);
         largeImageView.setOnClickListener(onClickListener);
         largeImageView.setOnLongClickListener(onLongClickListener);
-        largeImageView.setCriticalScaleValueHook(new LargeImageView.CriticalScaleValueHook() {
-            @Override
-            public float getMinScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMinScale) {
-                return 1;
-            }
-
-            @Override
-            public float getMaxScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMaxScale) {
-                return 4;
-            }
-        });
-
-        //        largeImageView.setImage(R.drawable.mvc);
-
+        largeImageView.setOnDoubleClickListener(onDoubleClickListener);
         try {
-            InputStream inputStream = getAssets().open("111.jpg");
+            String fileName = getIntent().getStringExtra("file_name");
+            InputStream inputStream = getAssets().open(fileName);
             largeImageView.setImage(new InputStreamBitmapDecoderFactory(inputStream));
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    largeImageView.setScale(0.5f);
+                }
+            });
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -87,6 +82,19 @@ public class SingleDemoActivity extends FragmentActivity {
         @Override
         public float getMaxScale(LargeImageView largeImageView, int imageWidth, int imageHeight, float suggestMaxScale) {
             return 4;
+        }
+    };
+
+    private LargeImageView.OnDoubleClickListener onDoubleClickListener = new LargeImageView.OnDoubleClickListener() {
+        @Override
+        public boolean onDoubleClick(LargeImageView view, MotionEvent event) {
+            float fitScale = view.getFitScale();
+            float maxScale = view.getMaxScale();
+            float minScale = view.getMinScale();
+            String message = "双击事件 minScale:" + minScale + " maxScale:" + maxScale + " fitScale:" + fitScale;
+            Toast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show();
+            //返回true 拦截双击缩放的事件
+            return false;
         }
     };
 }
