@@ -19,6 +19,7 @@ import android.graphics.Canvas;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.support.annotation.DrawableRes;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
@@ -118,12 +119,12 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
 
     private BlockImageLoader imageBlockLoader;
 
+    private boolean isAttachedWindow = false;
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        if (mFactory != null) {
-            imageBlockLoader.load(mFactory);
-        }
+        isAttachedWindow = true;
         if (mDrawable != null) {
             mDrawable.setVisible(getVisibility() == VISIBLE, false);
         }
@@ -132,7 +133,8 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
-        imageBlockLoader.destroy();
+        isAttachedWindow = false;
+        imageBlockLoader.quit();
         if (mDrawable != null) {
             mDrawable.setVisible(false, false);
         }
@@ -172,7 +174,8 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
         if (defaultDrawable != null) {
             onLoadImageSize(defaultDrawable.getIntrinsicWidth(), defaultDrawable.getIntrinsicHeight());
         }
-        imageBlockLoader.load(factory);
+        imageBlockLoader.setBitmapDecoderFactory(factory);
+        invalidate();
     }
 
     private Drawable defaultDrawable;
@@ -188,6 +191,11 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     @Override
     public void setImage(Bitmap bm) {
         setImageDrawable(new BitmapDrawable(getResources(), bm));
+    }
+
+    @Override
+    public void setImage(Drawable drawable) {
+        setImageDrawable(drawable);
     }
 
     @Override
@@ -214,18 +222,34 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     }
 
     private void updateDrawable(Drawable d) {
+        boolean sameDrawable = false;
+        boolean sCompatDrawableVisibilityDispatch = false;
+
         if (mDrawable != null) {
+            sameDrawable = mDrawable == d;
             mDrawable.setCallback(null);
             unscheduleDrawable(mDrawable);
+            if (!sCompatDrawableVisibilityDispatch && !sameDrawable && isAttachedWindow) {
+                mDrawable.setVisible(false, false);
+            }
         }
+
         mDrawable = d;
+
         if (d != null) {
             d.setCallback(this);
-            DrawableCompat.setLayoutDirection(d, DrawableCompat.getLayoutDirection(d));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                d.setLayoutDirection(getLayoutDirection());
+            }
             if (d.isStateful()) {
                 d.setState(getDrawableState());
             }
-            d.setVisible(getVisibility() == VISIBLE, true);
+            if (!sameDrawable || sCompatDrawableVisibilityDispatch) {
+                final boolean visible = sCompatDrawableVisibilityDispatch
+                        ? getVisibility() == VISIBLE
+                        : isAttachedWindow && getWindowVisibility() == VISIBLE && isShown();
+                d.setVisible(visible, true);
+            }
             d.setLevel(mLevel);
             mDrawableWidth = d.getIntrinsicWidth();
             mDrawableHeight = d.getIntrinsicHeight();
@@ -275,7 +299,8 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
         ViewCompat.postInvalidateOnAnimation(this);
     }
 
-    private Rect tempRect = new Rect();
+    private Rect tempVisibilityRect = new Rect();
+    private Rect tempImageRect = new Rect();
 
     @SuppressLint("DrawAllocation")
     @Override
@@ -288,7 +313,7 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
             mDrawable.setBounds((int) mOffsetX, (int) mOffsetY, (int) (getMeasuredWidth() * mScale), (int) (getMeasuredHeight() * mScale));
             mDrawable.draw(canvas);
         } else if (mFactory != null) {
-            Rect visibilityRect = tempRect;
+            Rect visibilityRect = tempVisibilityRect;
             getVisibilityRect(visibilityRect);
             float width = mScale * getWidth();
             int imgWidth = imageBlockLoader.getWidth();
@@ -296,13 +321,13 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
             float imageScale = imgWidth / width;
 
             // 需要显示的图片的实际宽度。
-            Rect imageRect = new Rect();
+            Rect imageRect = tempImageRect;
             imageRect.left = (int) Math.ceil((visibilityRect.left - mOffsetX) * imageScale);
             imageRect.top = (int) Math.ceil((visibilityRect.top - mOffsetY) * imageScale);
             imageRect.right = (int) Math.ceil((visibilityRect.right - mOffsetX) * imageScale);
             imageRect.bottom = (int) Math.ceil((visibilityRect.bottom - mOffsetY) * imageScale);
 
-            List<DrawData> drawData = imageBlockLoader.getDrawData(imageScale, imageRect);
+            List<DrawData> drawData = imageBlockLoader.loadImageBlocks(imageScale, imageRect);
 
             if (drawData.isEmpty()) {
                 if (defaultDrawable != null) {

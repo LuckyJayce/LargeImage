@@ -27,7 +27,6 @@ import android.util.Log;
 
 import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -106,6 +105,22 @@ public class BlockImageLoader {
         return rect;
     }
 
+
+    /**
+     * 设置图片的DecoderFactory
+     *
+     * @param factory
+     */
+    public void setBitmapDecoderFactory(BitmapDecoderFactory factory) {
+        if (mLoadData != null) {
+            LoadHandler handler = mLoadData.handler;
+            if (handler != null) {
+                handler.removeCallbacksAndMessages(null);
+            }
+        }
+        this.mLoadData = new LoadData(factory);
+    }
+
     /**
      * @param imageScale 图片width/屏幕width 的值。也就是说如果imageScale = 4，表示图片的400像素用来当做显示100像素<br>
      *                   imageScale越大一个单位点position包含的blockSize的正方形图片真实像素就越多<br>
@@ -114,19 +129,47 @@ public class BlockImageLoader {
      * @param imageRect  在View上图片显示的区域(需要加载的图片区域)
      * @return
      */
-    public List<DrawData> getDrawData(float imageScale, Rect imageRect) {
+    public List<DrawData> loadImageBlocks(float imageScale, Rect imageRect) {
+
         //  为什么要把图片切成一块一块的，而不是直接加载整张图?
         //为了避免滚动手势导致图片持续加载大的图片，。比如显示区域是800800，向右移动2像素，难道要重新加载800800的图片区域。 而选择分成小份之前显示现在还要显示的那部分就不用重新加载了。
 
         //获取图片数据信息。start(OnImageLoadListener invalidateListener)会去调用线程用BitmapRegionDecoder加载图片数据
         //如果还没有加载好，返回空列表
         LoadData loadData = mLoadData;
-        if (loadData == null || loadData.mDecoder == null) {
-            return new ArrayList<>(0);
+        if (loadData == null) {
+            return Collections.EMPTY_LIST;
         }
+
+        //移除掉停止线程的message
+        if (hasSendQuit) {
+            mainHandler.removeMessages(MESSAGE_QUIT_THREAD);
+            hasSendQuit = false;
+        }
+
+        if (handlerThread == null) {
+            if (DEBUG)
+                Log.d(TAG, "new thread");
+            handlerThread = new HandlerThread("111");
+            handlerThread.start();
+            mLoadData.handler = new LoadHandler(handlerThread.getLooper());
+        } else {
+            if (mLoadData.handler == null) {
+                mLoadData.handler = new LoadHandler(handlerThread.getLooper());
+            }
+        }
+        //发送加载图片的消息
+        if (loadData.mDecoder == null && !mLoadData.handler.hasMessages(MESSAGE_LOAD)) {
+            mLoadData.handler.sendEmptyMessage(MESSAGE_LOAD);
+        }
+
         //图片的宽高
         int imageWidth = loadData.mImageWidth;
         int imageHeight = loadData.mImageHeight;
+        if (imageWidth <= 0 || imageHeight <= 0) {
+            return Collections.EMPTY_LIST;
+        }
+
         //CacheData 图片块列表，List<CacheData>各个缩放级别的图片块
         List<CacheData> cacheDatas = loadData.mCacheDatas;
 
@@ -657,52 +700,20 @@ public class BlockImageLoader {
     }
 
     /**
-     * 加载图片
-     *
-     * @param factory
+     * 清除获取图片块的消息，停止线程
      */
-    public void load(BitmapDecoderFactory factory) {
-        //移除掉停止线程的message
-        mainHandler.removeMessages(MESSAGE_DESTROY);
-        mainHandler.removeCallbacksAndMessages(null);
-        if (handlerThread == null) {
-            if (DEBUG)
-                Log.d(TAG, "new thread");
-            handlerThread = new HandlerThread("111");
-            handlerThread.start();
-        }
-        release(mLoadData);
-        //创建一个新的handler，去发消息到handlerThread线程
-        LoadHandler handler = new LoadHandler(handlerThread.getLooper());
-        this.mLoadData = new LoadData(handler, factory);
-        //发送加载图片的消息
-        handler.sendEmptyMessage(MESSAGE_LOAD);
-    }
-
-    /**
-     * 释放图片，以及发送一个message 去停止线程
-     */
-    public void destroy() {
+    public void quit() {
         if (mLoadData != null) {
-            release(mLoadData);
-            //根据队列的性质，下个message在上个recycle的message之后执行，recycle之后再停止线程
-            mLoadData.handler.sendEmptyMessage(MESSAGE_DESTROY);
-        }
-        mLoadData = null;
-    }
-
-    private void release(LoadData loadData) {
-        if (loadData != null) {
-            LoadHandler handler = loadData.handler;
+            LoadHandler handler = mLoadData.handler;
             if (handler != null) {
                 handler.removeCallbacksAndMessages(null);
             }
-            if (loadData.mDecoder != null) {
-                Message message = handler.obtainMessage(MESSAGE_RELEASE, loadData.mDecoder);
-                handler.sendMessage(message);
-            }
         }
+        hasSendQuit = true;
+        mainHandler.sendEmptyMessageDelayed(MESSAGE_QUIT_THREAD, 5000);
     }
+
+    private boolean hasSendQuit;
 
     public int getBASE_BLOCKSIZE() {
         return BASE_BLOCKSIZE;
@@ -723,8 +734,8 @@ public class BlockImageLoader {
     public static final int MESSAGE_LOAD = 666;
     public static final int MESSAGE_BLOCK_1 = 1;
     public static final int MESSAGE_BLOCK_2 = 2;
-    public static final int MESSAGE_RELEASE = 667;
-    public static final int MESSAGE_DESTROY = 668;
+    //    public static final int MESSAGE_RELEASE = 667;
+    public static final int MESSAGE_QUIT_THREAD = 668;
 
     /**
      * 用于存放图片信息数据以及图片缓存块
@@ -732,9 +743,8 @@ public class BlockImageLoader {
     private static class LoadData {
         private LoadHandler handler;
 
-        public LoadData(LoadHandler handler, BitmapDecoderFactory factory) {
+        public LoadData(BitmapDecoderFactory factory) {
             this.mFactory = factory;
-            this.handler = handler;
         }
 
         /**
@@ -768,7 +778,7 @@ public class BlockImageLoader {
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            if (msg.what == MESSAGE_DESTROY) {
+            if (msg.what == MESSAGE_QUIT_THREAD) {
                 if (DEBUG)
                     Log.d(TAG, "quite thread");
                 if (handlerThread != null) {
@@ -792,11 +802,14 @@ public class BlockImageLoader {
             if (msg.what == MESSAGE_LOAD) {//start调用的一开始加载图片的图片信息
                 if (loadData.mFactory != null) {
                     try {
-                        loadData.mDecoder = loadData.mFactory.made();
-                        loadData.mImageWidth = loadData.mDecoder.getWidth();
-                        loadData.mImageHeight = loadData.mDecoder.getHeight();
-                        final int imageWidth = loadData.mImageWidth;
-                        final int imageHeight = loadData.mImageHeight;
+                        BitmapRegionDecoder decoder = loadData.mFactory.made();
+                        final int imageWidth = decoder.getWidth();
+                        final int imageHeight = decoder.getHeight();
+
+                        loadData.mImageWidth = imageWidth;
+                        loadData.mImageHeight = imageHeight;
+                        loadData.mDecoder = decoder;
+
                         mainHandler.post(new Runnable() {
                             @Override
                             public void run() {
@@ -805,7 +818,7 @@ public class BlockImageLoader {
                                 }
                             }
                         });
-                    } catch (final IOException e) {
+                    } catch (final Exception e) {
                         e.printStackTrace();
                         mainHandler.post(new Runnable() {
                             @Override
@@ -817,38 +830,43 @@ public class BlockImageLoader {
                         });
                     }
                 }
-            } else if (msg.what == MESSAGE_RELEASE) {
-                BitmapRegionDecoder decoder = (BitmapRegionDecoder) msg.obj;
-                long time = System.currentTimeMillis();
+            }
+//            else if (msg.what == MESSAGE_RELEASE) {
+//                BitmapRegionDecoder decoder = (BitmapRegionDecoder) msg.obj;
+//                long time = System.currentTimeMillis();
+//                if (decoder != null) {
+//                    try {
+//                        decoder.recycle();
+//                    } catch (Exception e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//                if (DEBUG)
+//                    Log.d(TAG, "release time:" + (System.currentTimeMillis() - time));
+//            } else if (msg.what == MESSAGE_QUIT_THREAD) {
+//                mainHandler.sendEmptyMessageDelayed(MESSAGE_QUIT_THREAD, 3000);
+//            }
+            else if (msg.what == MESSAGE_PIC) { //加载完整图片的缩略图
+                BitmapRegionDecoder decoder = loadData.mDecoder;
                 if (decoder != null) {
+                    Integer scale = (Integer) msg.obj;
+                    Options decodingOptions = new Options();
+                    decodingOptions.inSampleSize = scale;
                     try {
-                        decoder.recycle();
+                        loadData.mCacheImageData = decoder.decodeRegion(new Rect(0, 0, loadData.mImageWidth, loadData.mImageHeight),
+                                decodingOptions);
+                        loadData.mCacheImageScale = scale;
+                        mainHandler.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (onImageLoadListener != null) {
+                                    onImageLoadListener.onBlockImageLoadFinished();
+                                }
+                            }
+                        });
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
-                }
-                if (DEBUG)
-                    Log.d(TAG, "release time:" + (System.currentTimeMillis() - time));
-            } else if (msg.what == MESSAGE_DESTROY) {
-                mainHandler.sendEmptyMessageDelayed(MESSAGE_DESTROY, 3000);
-            } else if (msg.what == MESSAGE_PIC) { //加载完整图片的缩略图
-                Integer scale = (Integer) msg.obj;
-                Options decodingOptions = new Options();
-                decodingOptions.inSampleSize = scale;
-                try {
-                    loadData.mCacheImageData = loadData.mDecoder.decodeRegion(new Rect(0, 0, loadData.mImageWidth, loadData.mImageHeight),
-                            decodingOptions);
-                    loadData.mCacheImageScale = scale;
-                    mainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (onImageLoadListener != null) {
-                                onImageLoadListener.onBlockImageLoadFinished();
-                            }
-                        }
-                    });
-                } catch (Exception e) {
-                    e.printStackTrace();
                 }
             } else {//加载图片块
                 MessageData data = (MessageData) msg.obj;
