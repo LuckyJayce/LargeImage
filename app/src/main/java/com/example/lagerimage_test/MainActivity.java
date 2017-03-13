@@ -4,12 +4,18 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.view.View;
+import android.widget.Toast;
+
+import com.bumptech.glide.Glide;
 
 public class MainActivity extends FragmentActivity {
-    private View singleDemoButton;
     private View networkDemoButton;
     private View viewPagerDemoButton;
     private View listButton;
+    private View singleDemoVButton;
+    private View singleDemoHButton;
+    private View singleDemoNButton;
+    private View clearCacheButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
