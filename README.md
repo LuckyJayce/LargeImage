@@ -4,7 +4,7 @@ Android 加载大图  可以高清显示10000*10000像素的图片
 普通图片也可以用它展示
 #Gradle
 
- 	 compile 'com.shizhefei:LargeImageView:1.0.7'
+ 	 compile 'com.shizhefei:LargeImageView:1.0.8'
 
 Download Demo [apk](raw/LargeImage.apk)
 
