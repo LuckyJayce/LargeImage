@@ -48,8 +48,8 @@ public class BlockImageLoader {
 
     private MainHandler mainHandler;
 
-    private static final boolean DEBUG = false;
-    private static final String TAG = "BlockImageLoader";
+    static final boolean DEBUG = false;
+    static final String TAG = "BlockImageLoader";
 
     public BlockImageLoader(Context context) {
         super();
@@ -73,14 +73,18 @@ public class BlockImageLoader {
      * @return
      */
     public int getNearScale(float imageScale) {
-        int scale = (int) imageScale;
+        int scale = Math.round(imageScale);
+        return getNearScale(scale);
+    }
+
+    public int getNearScale(int scale) {
         int startS = 1;
         if (scale > 2) {
             do {
                 startS *= 2;
             } while ((scale = scale / 2) > 2);
         }
-        if (Math.abs(startS - imageScale) < Math.abs(startS * 2 - imageScale)) {
+        if (Math.abs(startS - scale) < Math.abs(startS * 2 - scale)) {
             scale = startS;
         } else {
             scale = startS * 2;
@@ -200,7 +204,7 @@ public class BlockImageLoader {
             try {
                 int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
                 int screenHeight = context.getResources().getDisplayMetrics().heightPixels;
-                int s = (int) Math.sqrt(1.0f * imageWidth * imageHeight / (screenWidth / 2) / (screenHeight / 2));
+                int s = (int) Math.ceil(Math.sqrt(1.0 * (imageWidth * imageHeight) / ((screenWidth / 2) * (screenHeight / 2))));
                 cacheImageScale = getNearScale(s);
                 if (cacheImageScale < s) {
                     cacheImageScale *= 2;
@@ -245,7 +249,7 @@ public class BlockImageLoader {
         int scale = getNearScale(imageScale);
 
         //如果缩略图的清晰够用，就不需要去加载图片块，直接画缩略图就好啦
-        if (cacheImageScale <= scale && cacheImageData != null) {
+        if (cacheImageScale <= scale) {
             return drawDatas;
         }
 
@@ -800,7 +804,11 @@ public class BlockImageLoader {
             super.handleMessage(msg);
             LoadData loadData = mLoadData;
             if (msg.what == MESSAGE_LOAD) {//start调用的一开始加载图片的图片信息
-                if (loadData.mFactory != null) {
+                if (loadData.mFactory != null && loadData.mDecoder == null) {
+                    long time = System.currentTimeMillis();
+                    if (DEBUG) {
+                        Log.d(TAG, "decoder 加载图片信息:");
+                    }
                     try {
                         BitmapRegionDecoder decoder = loadData.mFactory.made();
                         final int imageWidth = decoder.getWidth();
@@ -829,6 +837,9 @@ public class BlockImageLoader {
                             }
                         });
                     }
+                    if (DEBUG) {
+                        Log.d(TAG, "decoder 加载图片信息耗时:"+(System.currentTimeMillis() - time));
+                    }
                 }
             }
 //            else if (msg.what == MESSAGE_RELEASE) {
@@ -848,7 +859,10 @@ public class BlockImageLoader {
 //            }
             else if (msg.what == MESSAGE_PIC) { //加载完整图片的缩略图
                 BitmapRegionDecoder decoder = loadData.mDecoder;
-                if (decoder != null) {
+                if (decoder != null && loadData.mCacheImageData == null) {
+                    if (DEBUG) {
+                        Log.d(TAG, "加载完整图片的缩略图:");
+                    }
                     Integer scale = (Integer) msg.obj;
                     Options decodingOptions = new Options();
                     decodingOptions.inSampleSize = scale;
@@ -878,6 +892,9 @@ public class BlockImageLoader {
                 Bitmap imageData = cacheData.images.get(position);
                 // 不存在才需要加载，（这里避免之前的任务重复被执行）
                 if (imageData == null) {
+                    if (DEBUG) {
+                        Log.d(TAG, "加载图片块:" + position);
+                    }
                     int imageBlockSize = BASE_BLOCKSIZE * data.scale;
                     int left = imageBlockSize * position.col;
                     int right = left + imageBlockSize;
