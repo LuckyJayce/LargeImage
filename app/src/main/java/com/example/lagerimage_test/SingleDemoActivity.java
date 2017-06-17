@@ -35,8 +35,8 @@ public class SingleDemoActivity extends FragmentActivity {
         largeImageView.setOnDoubleClickListener(onDoubleClickListener);
         try {
             String fileName = getIntent().getStringExtra("file_name");
-            InputStream inputStream = getAssets().open(fileName);
-            largeImageView.setImage(new InputStreamBitmapDecoderFactory(inputStream));
+            InputStream inputStream = getAssets().open("mvc.png");
+            largeImageView.setImage(new InputStreamBitmapDecoderFactory(inputStream), getResources().getDrawable(R.drawable.mvc));
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {

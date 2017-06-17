@@ -42,7 +42,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-        android:text="列表" />
+        android:text="网络长图列表" />
+
+    <Button
+        android:id="@+id/main_linearLayout_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="本地长图线性布局" />
 
     <Button
         android:layout_marginTop="20dp"

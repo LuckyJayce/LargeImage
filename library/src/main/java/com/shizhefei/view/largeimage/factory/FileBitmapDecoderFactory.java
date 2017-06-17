@@ -1,5 +1,6 @@
 package com.shizhefei.view.largeimage.factory;
 
+import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 
 import java.io.File;
@@ -21,5 +22,13 @@ public class FileBitmapDecoderFactory implements BitmapDecoderFactory {
     @Override
     public BitmapRegionDecoder made() throws IOException {
         return BitmapRegionDecoder.newInstance(path, false);
+    }
+
+    @Override
+    public int[] getImageInfo() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(path, options);
+        return new int[]{options.outWidth, options.outHeight};
     }
 }

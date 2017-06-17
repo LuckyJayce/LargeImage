@@ -25,16 +25,18 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v4.view.ViewCompat;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 
 import com.shizhefei.view.largeimage.BlockImageLoader.DrawData;
 import com.shizhefei.view.largeimage.BlockImageLoader.OnImageLoadListener;
 import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class UpdateImageView extends UpdateView implements OnImageLoadListener, ILargeImageView {
 
-    private BlockImageLoader.OnImageLoadListener onImageLoadListener;
+    private OnImageLoadListener onImageLoadListener;
     private int mDrawableWidth;
     private int mDrawableHeight;
     private int mLevel;
@@ -134,7 +136,7 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         isAttachedWindow = false;
-        imageBlockLoader.quit();
+        imageBlockLoader.stopLoad();
         if (mDrawable != null) {
             mDrawable.setVisible(false, false);
         }
@@ -154,8 +156,14 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     }
 
     @Override
-    public void setOnImageLoadListener(BlockImageLoader.OnImageLoadListener onImageLoadListener) {
+    public void setOnImageLoadListener(OnImageLoadListener onImageLoadListener) {
         this.onImageLoadListener = onImageLoadListener;
+    }
+
+    public void setOnLoadStateChangeListener(BlockImageLoader.OnLoadStateChangeListener onLoadStateChangeListener) {
+        if (imageBlockLoader != null) {
+            imageBlockLoader.setOnLoadStateChangeListener(onLoadStateChangeListener);
+        }
     }
 
     @Override
@@ -220,6 +228,7 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
             invalidate();
         }
     }
+
 
     private void updateDrawable(Drawable d) {
         boolean sameDrawable = false;
@@ -306,16 +315,18 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (getMeasuredWidth() == 0) {
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+        if (viewWidth == 0) {
             return;
         }
         if (mDrawable != null) {
-            mDrawable.setBounds((int) mOffsetX, (int) mOffsetY, (int) (getMeasuredWidth() * mScale), (int) (getMeasuredHeight() * mScale));
+            mDrawable.setBounds((int) mOffsetX, (int) mOffsetY, (int) (viewWidth * mScale), (int) (viewHeight * mScale));
             mDrawable.draw(canvas);
         } else if (mFactory != null) {
             Rect visibilityRect = tempVisibilityRect;
             getVisibilityRect(visibilityRect);
-            float width = mScale * getWidth();
+            float width = mScale * viewWidth;
             int imgWidth = imageBlockLoader.getWidth();
 
             float imageScale = imgWidth / width;
@@ -327,18 +338,22 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
             imageRect.right = (int) Math.ceil((visibilityRect.right - mOffsetX) * imageScale);
             imageRect.bottom = (int) Math.ceil((visibilityRect.bottom - mOffsetY) * imageScale);
 
-            List<DrawData> drawData = imageBlockLoader.loadImageBlocks(imageScale, imageRect);
+            //如果是大图就需要继续加载图片块，如果不是大图直接用默认的
+            DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+            if (defaultDrawable == null || (imageBlockLoader.hasLoad() && (imageBlockLoader.getWidth() * imageBlockLoader.getHeight() > (displayMetrics.widthPixels * displayMetrics.heightPixels)))) {
+                imageBlockLoader.loadImageBlocks(drawDataList, imageScale, imageRect, viewWidth, viewHeight);
+            }
 
-            if (drawData.isEmpty()) {
+            if (drawDataList.isEmpty()) {
                 if (defaultDrawable != null) {
-                    int height = (int) (1.0f * defaultDrawable.getIntrinsicHeight() / defaultDrawable.getIntrinsicWidth() * getMeasuredWidth());
-                    int offset = (getMeasuredHeight() - height) / 2;
-                    defaultDrawable.setBounds((int) mOffsetX, (int) mOffsetY + offset, (int) (getMeasuredWidth() * mScale), (int) (height * mScale));
+                    int height = (int) (1.0f * defaultDrawable.getIntrinsicHeight() / defaultDrawable.getIntrinsicWidth() * viewWidth);
+                    int offset = (viewHeight - height) / 2;
+                    defaultDrawable.setBounds((int) mOffsetX, (int) mOffsetY + offset, (int) (viewWidth * mScale), (int) (height * mScale));
                     defaultDrawable.draw(canvas);
                 }
             } else {
                 int saveCount = canvas.save();
-                for (DrawData data : drawData) {
+                for (DrawData data : drawDataList) {
                     Rect drawRect = data.imageRect;
                     drawRect.left = (int) (Math.ceil(drawRect.left / imageScale) + mOffsetX);
                     drawRect.top = (int) (Math.ceil(drawRect.top / imageScale) + mOffsetY);
@@ -350,6 +365,8 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
             }
         }
     }
+
+    private List<DrawData> drawDataList = new ArrayList<>();
 
     @Override
     public void onBlockImageLoadFinished() {
@@ -375,5 +392,6 @@ public class UpdateImageView extends UpdateView implements OnImageLoadListener, 
             onImageLoadListener.onLoadFail(e);
         }
     }
+
 
 }

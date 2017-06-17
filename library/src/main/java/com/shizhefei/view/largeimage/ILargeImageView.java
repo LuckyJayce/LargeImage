@@ -9,7 +9,7 @@ import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 /**
  * Created by LuckyJayce on 2016/11/24.
  */
-interface ILargeImageView {
+public interface ILargeImageView {
 
     int getImageWidth();
 

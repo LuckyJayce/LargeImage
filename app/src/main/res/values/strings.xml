@@ -4,5 +4,6 @@
     <string name="app_name">LagerImage</string>
     <string name="title_activity_list">ListActivity</string>
     <string name="title_activity_list_imgae">ListImgaeActivity</string>
+    <string name="title_activity_line_images">LineImagesActivity</string>
 
 </resources>

@@ -18,6 +18,8 @@ package com.shizhefei.view.largeimage;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
@@ -27,6 +29,7 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewCompat;
 import android.support.v4.widget.ScrollerCompat;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -37,6 +40,7 @@ import android.view.animation.DecelerateInterpolator;
 
 import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -46,10 +50,11 @@ import java.util.List;
 public class LargeImageView extends View implements BlockImageLoader.OnImageLoadListener, ILargeImageView {
     private final GestureDetector gestureDetector;
     private final ScrollerCompat mScroller;
-    private final BlockImageLoader imageBlockLoader;
+    private final BlockImageLoader imageBlockImageLoader;
     private final int mMinimumVelocity;
     private final int mMaximumVelocity;
     private final ScaleGestureDetector scaleGestureDetector;
+    private final Paint paint;
     private int mDrawableWidth;
     private int mDrawableHeight;
     private float mScale = 1;
@@ -82,11 +87,15 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         gestureDetector = new GestureDetector(context, simpleOnGestureListener);
         scaleGestureDetector = new ScaleGestureDetector(context, onScaleGestureListener);
 
-        imageBlockLoader = new BlockImageLoader(context);
-        imageBlockLoader.setOnImageLoadListener(this);
+        imageBlockImageLoader = new BlockImageLoader(context);
+        imageBlockImageLoader.setOnImageLoadListener(this);
         final ViewConfiguration configuration = ViewConfiguration.get(getContext());
         mMinimumVelocity = configuration.getScaledMinimumFlingVelocity();
         mMaximumVelocity = configuration.getScaledMaximumFlingVelocity();
+
+        paint = new Paint();
+        paint.setColor(Color.GRAY);
+        paint.setAntiAlias(true);
     }
 
     @Override
@@ -142,6 +151,12 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         this.mOnImageLoadListener = onImageLoadListener;
     }
 
+    public void setOnLoadStateChangeListener(BlockImageLoader.OnLoadStateChangeListener onLoadStateChangeListener) {
+        if (imageBlockImageLoader != null) {
+            imageBlockImageLoader.setOnLoadStateChangeListener(onLoadStateChangeListener);
+        }
+    }
+
     @Override
     public BlockImageLoader.OnImageLoadListener getOnImageLoadListener() {
         return mOnImageLoadListener;
@@ -194,10 +209,8 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         mScale = 1.0f;
         this.mFactory = factory;
         scrollTo(0, 0);
-        if (defaultDrawable != null) {
-            onLoadImageSize(defaultDrawable.getIntrinsicWidth(), defaultDrawable.getIntrinsicHeight());
-        }
-        imageBlockLoader.setBitmapDecoderFactory(factory);
+        updateDrawable(defaultDrawable);
+        imageBlockImageLoader.setBitmapDecoderFactory(factory);
         invalidate();
     }
 
@@ -239,7 +252,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         if (mDrawable != null) {
             return true;
         } else if (mFactory != null) {
-            return imageBlockLoader.hasLoad();
+            return imageBlockImageLoader.hasLoad();
         }
         return false;
     }
@@ -258,15 +271,15 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
         return scrollRange;
     }
 
-    public float getMinScale(){
+    public float getMinScale() {
         return minScale;
     }
 
-    public float getMaxScale(){
+    public float getMaxScale() {
         return maxScale;
     }
 
-    public float getFitScale(){
+    public float getFitScale() {
         return fitScale;
     }
 
@@ -357,33 +370,35 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (getMeasuredWidth() == 0 || getMeasuredHeight() == 0) {
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+        if (viewWidth == 0) {
             return;
         }
         int drawOffsetX = 0;
         int drawOffsetY = 0;
         int contentWidth = getContentWidth();
         int contentHeight = getContentHeight();
-        int layoutWidth = getMeasuredWidth();
-        int layoutHeight = getMeasuredHeight();
-        if (layoutWidth > contentWidth) {
-            drawOffsetX = (layoutWidth - contentWidth) / 2;
+        if (viewWidth > contentWidth) {
+            drawOffsetX = (viewWidth - contentWidth) / 2;
         }
-        if (layoutHeight > contentHeight) {
-            drawOffsetY = (layoutHeight - contentHeight) / 2;
+        if (viewHeight > contentHeight) {
+            drawOffsetY = (viewHeight - contentHeight) / 2;
         }
-        if (mDrawable != null) {
-            mDrawable.setBounds(drawOffsetX, drawOffsetY, drawOffsetX + contentWidth, drawOffsetY + contentHeight);
-            mDrawable.draw(canvas);
-        } else if (mFactory != null) {
+        if (mFactory == null) {
+            if (mDrawable != null) {
+                mDrawable.setBounds(drawOffsetX, drawOffsetY, drawOffsetX + contentWidth, drawOffsetY + contentHeight);
+                mDrawable.draw(canvas);
+            }
+        } else {
             int mOffsetX = 0;
             int mOffsetY = 0;
             int left = getScrollX();
-            int right = left + getMeasuredWidth();
+            int right = left + viewWidth;
             int top = getScrollY();
-            int bottom = top + getMeasuredHeight();
+            int bottom = top + viewHeight;
             float width = mScale * getWidth();
-            float imgWidth = imageBlockLoader.getWidth();
+            float imgWidth = imageBlockImageLoader.getWidth();
 
             float imageScale = imgWidth / width;
 
@@ -393,20 +408,53 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
             imageRect.right = (int) Math.ceil((right - mOffsetX) * imageScale);
             imageRect.bottom = (int) Math.ceil((bottom - mOffsetY) * imageScale);
 
-            List<BlockImageLoader.DrawData> drawData = imageBlockLoader.loadImageBlocks(imageScale, imageRect);
-
             int saveCount = canvas.save();
-            for (BlockImageLoader.DrawData data : drawData) {
-                Rect drawRect = data.imageRect;
-                drawRect.left = (int) (Math.ceil(drawRect.left / imageScale) + mOffsetX) + drawOffsetX;
-                drawRect.top = (int) (Math.ceil(drawRect.top / imageScale) + mOffsetY) + drawOffsetY;
-                drawRect.right = (int) (Math.ceil(drawRect.right / imageScale) + mOffsetX) + drawOffsetX;
-                drawRect.bottom = (int) (Math.ceil(drawRect.bottom / imageScale) + mOffsetY) + drawOffsetY;
-                canvas.drawBitmap(data.bitmap, data.srcRect, drawRect, null);
+
+            //如果是大图就需要继续加载图片块，如果不是大图直接用默认的
+            DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+            if (mDrawable == null || !imageBlockImageLoader.hasLoad() || (imageBlockImageLoader.getWidth() * imageBlockImageLoader.getHeight() > (displayMetrics.widthPixels * displayMetrics.heightPixels))) {
+                imageBlockImageLoader.loadImageBlocks(drawDatas, imageScale, imageRect, viewWidth, viewHeight);
+            }
+            if (BlockImageLoader.DEBUG) {
+                for (int i = 0; i < drawDatas.size(); i++) {
+                    BlockImageLoader.DrawData data = drawDatas.get(i);
+                    Rect drawRect = data.imageRect;
+                    drawRect.left = (int) (Math.ceil(drawRect.left / imageScale) + mOffsetX) + drawOffsetX;
+                    drawRect.top = (int) (Math.ceil(drawRect.top / imageScale) + mOffsetY) + drawOffsetY;
+                    drawRect.right = (int) (Math.ceil(drawRect.right / imageScale) + mOffsetX) + drawOffsetX;
+                    drawRect.bottom = (int) (Math.ceil(drawRect.bottom / imageScale) + mOffsetY) + drawOffsetY;
+                    if (i == 0) {
+                        canvas.drawRect(data.imageRect, paint);
+                    } else {
+                        drawRect.left += 3;
+                        drawRect.top += 3;
+                        drawRect.bottom -= 3;
+                        drawRect.right -= 3;
+                        canvas.drawBitmap(data.bitmap, data.srcRect, drawRect, null);
+                    }
+                }
+            } else {
+                if (drawDatas.isEmpty()) {
+                    if (mDrawable != null) {
+                        mDrawable.setBounds(drawOffsetX, drawOffsetY, drawOffsetX + contentWidth, drawOffsetY + contentHeight);
+                        mDrawable.draw(canvas);
+                    }
+                } else {
+                    for (BlockImageLoader.DrawData data : drawDatas) {
+                        Rect drawRect = data.imageRect;
+                        drawRect.left = (int) (Math.ceil(drawRect.left / imageScale) + mOffsetX) + drawOffsetX;
+                        drawRect.top = (int) (Math.ceil(drawRect.top / imageScale) + mOffsetY) + drawOffsetY;
+                        drawRect.right = (int) (Math.ceil(drawRect.right / imageScale) + mOffsetX) + drawOffsetX;
+                        drawRect.bottom = (int) (Math.ceil(drawRect.bottom / imageScale) + mOffsetY) + drawOffsetY;
+                        canvas.drawBitmap(data.bitmap, data.srcRect, drawRect, null);
+                    }
+                }
             }
             canvas.restoreToCount(saveCount);
         }
     }
+
+    private List<BlockImageLoader.DrawData> drawDatas = new ArrayList<>();
 
     private Rect imageRect = new Rect();
 
@@ -501,7 +549,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         isAttachedWindow = true;
-        imageBlockLoader.quit();
+        imageBlockImageLoader.stopLoad();
         if (mDrawable != null) {
             mDrawable.setVisible(false, false);
         }

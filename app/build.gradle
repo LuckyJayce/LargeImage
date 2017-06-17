@@ -33,4 +33,8 @@ dependencies {
     compile 'com.github.HotBitmapGG:RingProgressBar:V1.2.2'
     compile project(':library')
     compile 'com.android.support:recyclerview-v7:24.0.0'
+
+    debugCompile 'com.squareup.leakcanary:leakcanary-android:1.5.1'
+    releaseCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.5.1'
+    testCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.5.1'
 }

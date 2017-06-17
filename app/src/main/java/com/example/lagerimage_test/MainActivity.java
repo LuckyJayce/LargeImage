@@ -16,6 +16,7 @@ public class MainActivity extends FragmentActivity {
     private View singleDemoHButton;
     private View singleDemoNButton;
     private View clearCacheButton;
+    private View linearLayoutButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,6 +27,7 @@ public class MainActivity extends FragmentActivity {
         singleDemoNButton = findViewById(R.id.main_singleDemoN_button);
         viewPagerDemoButton = findViewById(R.id.main_viewPagerDemo_button);
         networkDemoButton = findViewById(R.id.main_networkDemo_button);
+        linearLayoutButton = findViewById(R.id.main_linearLayout_button);
         listButton = findViewById(R.id.main_list_button);
         clearCacheButton = findViewById(R.id.main_clear_cache_button);
 
@@ -34,6 +36,7 @@ public class MainActivity extends FragmentActivity {
         singleDemoNButton.setOnClickListener(onClickListener);
         viewPagerDemoButton.setOnClickListener(onClickListener);
         networkDemoButton.setOnClickListener(onClickListener);
+        linearLayoutButton.setOnClickListener(onClickListener);
         listButton.setOnClickListener(onClickListener);
         clearCacheButton.setOnClickListener(onClickListener);
     }
@@ -59,6 +62,8 @@ public class MainActivity extends FragmentActivity {
                 startActivity(new Intent(getApplicationContext(),NetworkDemoActivity.class));
             }else if(v==listButton){
                 startActivity(new Intent(getApplicationContext(),ListImageActivity.class));
+            }else if(v==linearLayoutButton){
+                startActivity(new Intent(getApplicationContext(),LineImagesActivity.class));
             }else if(v==clearCacheButton){
                 Toast.makeText(getApplicationContext(), "开始清除缓存", Toast.LENGTH_SHORT).show();
                 Glide.get(getApplicationContext()).clearMemory();

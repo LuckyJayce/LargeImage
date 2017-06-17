@@ -1,9 +1,13 @@
 package com.shizhefei.view.largeimage.factory;
 
+import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
+import android.graphics.Rect;
 
 import java.io.IOException;
 import java.io.InputStream;
+
+import static android.R.attr.path;
 
 public class InputStreamBitmapDecoderFactory implements BitmapDecoderFactory {
     private InputStream inputStream;
@@ -18,4 +22,11 @@ public class InputStreamBitmapDecoderFactory implements BitmapDecoderFactory {
         return BitmapRegionDecoder.newInstance(inputStream, false);
     }
 
+    @Override
+    public int[] getImageInfo() {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeStream(inputStream, new Rect(),options);
+        return new int[]{options.outWidth, options.outHeight};
+    }
 }

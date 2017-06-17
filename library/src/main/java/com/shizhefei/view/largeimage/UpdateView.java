@@ -16,7 +16,9 @@ import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
@@ -137,35 +139,82 @@ public abstract class UpdateView extends View {
         lock = false;
     }
 
+    int[] tempLocationInWindow = new int[2];
+    Rect tempVisibilityRect = new Rect();
+    long time;
+
     private void updateWindow(boolean force, boolean redrawNeeded) {
         if (lock) {
             return;
         }
-        int[] tempLocationInWindow = new int[2];
+        long c = SystemClock.uptimeMillis();
+        if (c - time < 16) {
+            return;
+        }
+        time = c;
         getLocationInWindow(tempLocationInWindow);
         final boolean visibleChanged = mVisible != mRequestedVisible;
         if (force || visibleChanged || tempLocationInWindow[0] != mLocation[0] || tempLocationInWindow[1] != mLocation[1] || redrawNeeded) {
-            this.mLocation = tempLocationInWindow;
-            Rect visibilityRect = new Rect();
-            getVisibilityRect(visibilityRect);
-            if (mVisibilityRect == null || !mVisibilityRect.equals(visibilityRect)) {
-                this.mVisibilityRect = visibilityRect;
-                onUpdateWindow(visibilityRect);
+            this.mLocation[0] = tempLocationInWindow[0];
+            this.mLocation[1] = tempLocationInWindow[1];
+            getVisibilityRect(tempVisibilityRect);
+            if (!mVisibilityRect.equals(tempVisibilityRect)) {
+                if (!(mVisibilityRect.isEmpty() && tempVisibilityRect.isEmpty())) {
+                    this.mVisibilityRect.set(tempVisibilityRect);
+                    onUpdateWindow(mVisibilityRect);
+                }
             }
         }
     }
 
-    private Rect mVisibilityRect;
+    private Rect mVisibilityRect = new Rect();
 
     protected abstract void onUpdateWindow(Rect visibilityRect);
 
+    int[] location = new int[2];
+
     protected void getVisibilityRect(Rect visibilityRect) {
         getGlobalVisibleRect(visibilityRect);
-        int[] location = new int[2];
-        getLocationOnScreen(location);
+
+        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
+        int screenWidth = displayMetrics.widthPixels;
+        int screenHeight = displayMetrics.heightPixels;
+        if (visibilityRect.left < 0) {
+            visibilityRect.left = 0;
+        } else if (visibilityRect.left > screenWidth) {
+            visibilityRect.left = screenWidth;
+        }
+        if (visibilityRect.right < 0) {
+            visibilityRect.right = 0;
+        } else if (visibilityRect.right > screenWidth) {
+            visibilityRect.right = screenWidth;
+        }
+        if (visibilityRect.top < 0) {
+            visibilityRect.top = 0;
+        } else if (visibilityRect.top > screenHeight) {
+            visibilityRect.top = screenHeight;
+        }
+        if (visibilityRect.bottom < 0) {
+            visibilityRect.bottom = 0;
+        } else if (visibilityRect.bottom > screenHeight) {
+            visibilityRect.bottom = screenHeight;
+        }
+
+//        getLocalVisibleRect(visibilityRect);
+//
+//        Log.d("pppp", "index: " + index + " getGlobalVisibleRect:" + visibilityRect);
+
+        getLocationInWindow(location);
+
         visibilityRect.left = visibilityRect.left - location[0];
         visibilityRect.right = visibilityRect.right - location[0];
         visibilityRect.top = visibilityRect.top - location[1];
         visibilityRect.bottom = visibilityRect.bottom - location[1];
+    }
+
+    protected int index;
+
+    public void setIndex(int index) {
+        this.index = index;
     }
 }
