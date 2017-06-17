@@ -876,6 +876,9 @@ public class BlockImageLoader {
 
         @Override
         protected void doInBackground() {
+            if (DEBUG) {
+                Log.d(TAG,"doInBackground："+Thread.currentThread()+" "+Thread.currentThread().getId());
+            }
             int imageBlockSize = BASE_BLOCKSIZE * scale;
             int left = imageBlockSize * position.col;
             int right = left + imageBlockSize;
