@@ -19,6 +19,7 @@ import android.os.Build;
 import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.WindowManager;
@@ -172,44 +173,32 @@ public abstract class UpdateView extends View {
     protected abstract void onUpdateWindow(Rect visibilityRect);
 
     int[] location = new int[2];
+    private Rect mWindowVisibleDisplayFrame = new Rect();
 
-    protected void getVisibilityRect(Rect visibilityRect) {
-        getGlobalVisibleRect(visibilityRect);
+    protected void getVisibilityRect(Rect visibleRect) {
+        getGlobalVisibleRect(visibleRect);
 
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-        int screenWidth = displayMetrics.widthPixels;
-        int screenHeight = displayMetrics.heightPixels;
-        if (visibilityRect.left < 0) {
-            visibilityRect.left = 0;
-        } else if (visibilityRect.left > screenWidth) {
-            visibilityRect.left = screenWidth;
-        }
-        if (visibilityRect.right < 0) {
-            visibilityRect.right = 0;
-        } else if (visibilityRect.right > screenWidth) {
-            visibilityRect.right = screenWidth;
-        }
-        if (visibilityRect.top < 0) {
-            visibilityRect.top = 0;
-        } else if (visibilityRect.top > screenHeight) {
-            visibilityRect.top = screenHeight;
-        }
-        if (visibilityRect.bottom < 0) {
-            visibilityRect.bottom = 0;
-        } else if (visibilityRect.bottom > screenHeight) {
-            visibilityRect.bottom = screenHeight;
-        }
+        getWindowVisibleDisplayFrame(mWindowVisibleDisplayFrame);
 
-//        getLocalVisibleRect(visibilityRect);
-//
-//        Log.d("pppp", "index: " + index + " getGlobalVisibleRect:" + visibilityRect);
+        if (visibleRect.left < mWindowVisibleDisplayFrame.left) {
+            visibleRect.left = mWindowVisibleDisplayFrame.left;
+        }
+        if (visibleRect.right > mWindowVisibleDisplayFrame.right) {
+            visibleRect.right = mWindowVisibleDisplayFrame.right;
+        }
+        if (visibleRect.top < mWindowVisibleDisplayFrame.top) {
+            visibleRect.top = mWindowVisibleDisplayFrame.top;
+        }
+        if (visibleRect.bottom > mWindowVisibleDisplayFrame.bottom) {
+            visibleRect.bottom = mWindowVisibleDisplayFrame.bottom;
+        }
 
         getLocationInWindow(location);
 
-        visibilityRect.left = visibilityRect.left - location[0];
-        visibilityRect.right = visibilityRect.right - location[0];
-        visibilityRect.top = visibilityRect.top - location[1];
-        visibilityRect.bottom = visibilityRect.bottom - location[1];
+        visibleRect.left = visibleRect.left - location[0];
+        visibleRect.right = visibleRect.right - location[0];
+        visibleRect.top = visibleRect.top - location[1];
+        visibleRect.bottom = visibleRect.bottom - location[1];
     }
 
     protected int index;
