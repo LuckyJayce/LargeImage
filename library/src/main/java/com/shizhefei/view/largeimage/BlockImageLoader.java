@@ -19,6 +19,7 @@ import android.graphics.BitmapRegionDecoder;
 import android.graphics.Rect;
 import android.os.Build;
 import android.support.v4.util.Pools;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.SparseIntArray;
@@ -44,7 +45,9 @@ public class BlockImageLoader {
 
     public static boolean DEBUG = false;
     static final String TAG = "Loader";
-    private static Pools.SynchronizedPool<Bitmap> bitmapPool = new Pools.SynchronizedPool<>(6);
+    private static final String IMAGE_PNG = "png";
+
+    private Pools.SynchronizedPool<Bitmap> bitmapPool = new Pools.SynchronizedPool<>(6);
     private Pools.SimplePool<BlockData> blockDataPool = new Pools.SimplePool<>(64);
     private Pools.SimplePool<DrawData> drawDataPool = new Pools.SimplePool<>(64);
     private LoadData mLoadData;
@@ -141,15 +144,15 @@ public class BlockImageLoader {
         }
         drawDataList.clear();
 
-        if (loadData.mDecoder == null) {
+        if (loadData.mDecoder == null || loadData.options == null) {
             if (isUnRunning(loadData.task)) {
                 loadData.task = new LoadImageInfoTask(loadData, onImageLoadListener, onLoadStateChangeListener);
                 exeTask(loadData.task);
             }
             return;
         }
-        int imageWidth = loadData.imageWidth;
-        int imageHeight = loadData.imageHeight;
+        int imageWidth = loadData.options.outWidth;
+        int imageHeight = loadData.options.outHeight;
         BitmapRegionDecoder decoder = loadData.mDecoder;
         if (loadData.thumbnailBlockData == null) {
             int screenWidth = context.getResources().getDisplayMetrics().widthPixels;
@@ -377,7 +380,7 @@ public class BlockImageLoader {
             for (int col = startCol; col < endCol; col++) {
                 positionKey.set(row, col);
                 //blockData可能为null
-                BlockData blockData = addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder);
+                BlockData blockData = addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder, loadData.options);
                 Bitmap bitmap = blockData.bitmap;
                 if (bitmap != null) {
                     DrawData drawData = drawDataPool.acquire();
@@ -412,14 +415,14 @@ public class BlockImageLoader {
         for (int row = cacheStartRow; row < startRow; row++) {
             for (int col = cacheStartCol; col < cacheEndCol; col++) {
                 positionKey.set(row, col);
-                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder);
+                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder, loadData.options);
             }
         }
         // 下 #########
         for (int row = endRow; row < cacheEndRow; row++) {
             for (int col = cacheStartCol; col < cacheEndCol; col++) {
                 positionKey.set(row, col);
-                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder);
+                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder, loadData.options);
             }
         }
         // # 左
@@ -427,7 +430,7 @@ public class BlockImageLoader {
         for (int row = startRow; row < endRow; row++) {
             for (int col = cacheStartCol; col < startCol; col++) {
                 positionKey.set(row, col);
-                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder);
+                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder, loadData.options);
             }
         }
         // # 右
@@ -435,7 +438,7 @@ public class BlockImageLoader {
         for (int row = startRow; row < endRow; row++) {
             for (int col = endCol; col < cacheEndCol; col++) {
                 positionKey.set(row, col);
-                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder);
+                addRequestBlock(positionKey, tempCurrentDataMap.get(positionKey), loadData.currentScaleDataMap, scale, imageWidth, imageHeight, decoder, loadData.options);
             }
         }
         //移除掉那些没被用到的缓存的图片块
@@ -592,7 +595,7 @@ public class BlockImageLoader {
         blockDataPool.release(block);
     }
 
-    private BlockData addRequestBlock(Position positionKey, BlockData blockData, Map<Position, BlockData> currentDataMap, int scale, int imageWidth, int imageHeight, BitmapRegionDecoder decoder) {
+    private BlockData addRequestBlock(Position positionKey, BlockData blockData, Map<Position, BlockData> currentDataMap, int scale, int imageWidth, int imageHeight, BitmapRegionDecoder decoder, BitmapFactory.Options options) {
         if (blockData == null) {
             blockData = blockDataPool.acquire();
             if (blockData == null) {
@@ -606,7 +609,7 @@ public class BlockImageLoader {
             }
         }
         if (blockData.bitmap == null && isUnRunning(blockData.task)) {
-            blockData.task = new LoadBlockTask(blockData.position, blockData, scale, imageWidth, imageHeight, decoder, onImageLoadListener, onLoadStateChangeListener);
+            blockData.task = new LoadBlockTask(blockData.position, blockData, scale, imageWidth, imageHeight, decoder, options, onImageLoadListener, onLoadStateChangeListener);
             exeTask(blockData.task);
         }
         currentDataMap.put(blockData.position, blockData);
@@ -641,17 +644,17 @@ public class BlockImageLoader {
     }
 
     int getWidth() {
-        if (mLoadData == null) {
+        if (mLoadData == null || mLoadData.options == null) {
             return 0;
         }
-        return mLoadData.imageWidth;
+        return mLoadData.options.outWidth;
     }
 
     int getHeight() {
-        if (mLoadData == null) {
+        if (mLoadData == null || mLoadData.options == null) {
             return 0;
         }
-        return mLoadData.imageHeight;
+        return mLoadData.options.outHeight;
     }
 
     private static class LoadData {
@@ -678,9 +681,8 @@ public class BlockImageLoader {
 
         private BitmapDecoderFactory mFactory;
         private BitmapRegionDecoder mDecoder;
-        private int imageHeight;
-        private int imageWidth;
         private LoadImageInfoTask task;
+        private BitmapFactory.Options options;
 
         LoadData(BitmapDecoderFactory factory) {
             mFactory = factory;
@@ -765,8 +767,7 @@ public class BlockImageLoader {
         private OnLoadStateChangeListener onLoadStateChangeListener;
         private OnImageLoadListener onImageLoadListener;
         private volatile BitmapRegionDecoder decoder;
-        private volatile int imageWidth;
-        private volatile int imageHeight;
+        private volatile BitmapFactory.Options options;
         private volatile Exception e;
 
         LoadImageInfoTask(LoadData loadData, OnImageLoadListener onImageLoadListener, OnLoadStateChangeListener onLoadStateChangeListener) {
@@ -775,6 +776,13 @@ public class BlockImageLoader {
             this.onImageLoadListener = onImageLoadListener;
             this.onLoadStateChangeListener = onLoadStateChangeListener;
             if (DEBUG) {
+                int imageWidth = 0;
+                int imageHeight = 0;
+                if (options != null) {
+                    imageWidth = options.outWidth;
+                    imageHeight = options.outHeight;
+                }
+
                 Log.d(TAG, "start LoadImageInfoTask:imageW:" + imageWidth + " imageH:" + imageHeight);
             }
         }
@@ -791,8 +799,7 @@ public class BlockImageLoader {
         protected void doInBackground() {
             try {
                 decoder = mFactory.made();
-                imageWidth = decoder.getWidth();
-                imageHeight = decoder.getHeight();
+                options = mFactory.getImageInfo();
                 if (DEBUG) {
                     Log.d(TAG, "LoadImageInfoTask doInBackground");
                 }
@@ -818,14 +825,20 @@ public class BlockImageLoader {
         protected void onPostExecute() {
             super.onPostExecute();
             if (DEBUG) {
+                int imageWidth = 0;
+                int imageHeight = 0;
+                if (options != null) {
+                    imageWidth = options.outWidth;
+                    imageHeight = options.outHeight;
+                }
+
                 Log.d(TAG, "onPostExecute LoadImageInfoTask:" + e + " imageW:" + imageWidth + " imageH:" + imageHeight + " e:" + e);
             }
             imageInfo.task = null;
-            if (e == null) {
-                imageInfo.imageWidth = imageWidth;
-                imageInfo.imageHeight = imageHeight;
+            if (e == null && this.options != null) {
+                imageInfo.options = this.options;
                 imageInfo.mDecoder = decoder;
-                onImageLoadListener.onLoadImageSize(imageWidth, imageHeight);
+                onImageLoadListener.onLoadImageSize(this.options.outWidth, this.options.outHeight);
             } else {
                 onImageLoadListener.onLoadFail(e);
             }
@@ -839,10 +852,11 @@ public class BlockImageLoader {
         }
     }
 
-    private static class LoadBlockTask extends TaskQueue.Task {
+    private class LoadBlockTask extends TaskQueue.Task {
         private int scale;
         private BlockData blockData;
         private Position position;
+        private BitmapFactory.Options options;
         private int imageWidth;
         private int imageHeight;
         private BitmapRegionDecoder decoder;
@@ -852,13 +866,14 @@ public class BlockImageLoader {
         private volatile Bitmap bitmap;
         private volatile Throwable throwable;
 
-        LoadBlockTask(Position position, BlockData blockData, int scale, int imageWidth, int imageHeight, BitmapRegionDecoder decoder, OnImageLoadListener onImageLoadListener, OnLoadStateChangeListener onLoadStateChangeListener) {
+        LoadBlockTask(Position position, BlockData blockData, int scale, int imageWidth, int imageHeight, BitmapRegionDecoder decoder, BitmapFactory.Options options, OnImageLoadListener onImageLoadListener, OnLoadStateChangeListener onLoadStateChangeListener) {
             this.blockData = blockData;
             this.scale = scale;
             this.position = position;
             this.imageWidth = imageWidth;
             this.imageHeight = imageHeight;
             this.decoder = decoder;
+            this.options = options;
             this.onImageLoadListener = onImageLoadListener;
             this.onLoadStateChangeListener = onLoadStateChangeListener;
             if (DEBUG) {
@@ -894,7 +909,12 @@ public class BlockImageLoader {
             try {
                 BitmapFactory.Options decodingOptions = new BitmapFactory.Options();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                    Bitmap bitmap = acquireBitmap();
+                    Bitmap.Config config = Bitmap.Config.RGB_565;
+                    if (!TextUtils.isEmpty(options.outMimeType) && options.outMimeType.contains(IMAGE_PNG)) {
+                        config = Bitmap.Config.ARGB_8888;
+                    }
+
+                    Bitmap bitmap = acquireBitmap(config);
                     decodingOptions.inBitmap = bitmap;
                     decodingOptions.inMutable = true;
                 }
@@ -954,10 +974,10 @@ public class BlockImageLoader {
         }
     }
 
-    private static Bitmap acquireBitmap() {
+    private Bitmap acquireBitmap(Bitmap.Config config) {
         Bitmap bitmap = bitmapPool.acquire();
         if (bitmap == null) {
-            bitmap = Bitmap.createBitmap(BASE_BLOCKSIZE, BASE_BLOCKSIZE, Bitmap.Config.RGB_565);
+            bitmap = Bitmap.createBitmap(BASE_BLOCKSIZE, BASE_BLOCKSIZE, config);
         }
         return bitmap;
     }
