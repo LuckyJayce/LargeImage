@@ -7,8 +7,6 @@ import android.graphics.Rect;
 import java.io.IOException;
 import java.io.InputStream;
 
-import static android.R.attr.path;
-
 public class InputStreamBitmapDecoderFactory implements BitmapDecoderFactory {
     private InputStream inputStream;
 
@@ -23,10 +21,10 @@ public class InputStreamBitmapDecoderFactory implements BitmapDecoderFactory {
     }
 
     @Override
-    public int[] getImageInfo() {
+    public BitmapFactory.Options getImageInfo() {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
         BitmapFactory.decodeStream(inputStream, new Rect(),options);
-        return new int[]{options.outWidth, options.outHeight};
+        return options;
     }
 }

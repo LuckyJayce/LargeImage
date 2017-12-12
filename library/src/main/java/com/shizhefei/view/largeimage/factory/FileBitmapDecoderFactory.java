@@ -25,10 +25,10 @@ public class FileBitmapDecoderFactory implements BitmapDecoderFactory {
     }
 
     @Override
-    public int[] getImageInfo() {
+    public BitmapFactory.Options getImageInfo() {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(path, options);
-        return new int[]{options.outWidth, options.outHeight};
+        return options;
     }
 }
