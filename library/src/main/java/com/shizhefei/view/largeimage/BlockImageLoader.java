@@ -957,7 +957,7 @@ public class BlockImageLoader {
     private static Bitmap acquireBitmap() {
         Bitmap bitmap = bitmapPool.acquire();
         if (bitmap == null) {
-            bitmap = Bitmap.createBitmap(BASE_BLOCKSIZE, BASE_BLOCKSIZE, Bitmap.Config.RGB_565);
+            bitmap = Bitmap.createBitmap(BASE_BLOCKSIZE, BASE_BLOCKSIZE, Bitmap.Config.ARGB_8888);
         }
         return bitmap;
     }
