@@ -142,7 +142,7 @@ UpdateView负责监听显示区域的变化的View，子类通过重写onUpdateW
 ### BlockImageLoader负责加载显示区域的图片块。   ###
 
 
-###实现细节：  ###
+### 实现细节：  ###
 每次LargeImageView的onDraw方法都会调用ImageManagerd的getDrawData(float imageScale, Rect imageRect)方法，imageRect为在View上图片显示的区域(需要加载的图片区域)，imageScale 假设等于4的话，就是View上显示1像素，image要加载4个像素的区域（缩小4倍的图片）  
 getDrawData(float imageScale, Rect imageRect)实现细节：  
 手势移动，图片显示区域会变化。比如显示区域是800*800，向右移动2像素，难道要重新加载800*800的图片区域？
