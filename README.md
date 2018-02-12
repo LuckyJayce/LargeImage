@@ -8,12 +8,12 @@ Android 加载大图  可以高清显示10000*10000像素的图片
 
 Download Demo [apk](raw/LargeImage.apk)
 
-#效果
+# 效果
 
 ![image](raw/demo.gif)
 
 
-#使用方法
+# 使用方法
 
 	<com.shizhefei.view.largeimage.LargeImageView
 	    android:id="@+id/imageView"
@@ -128,18 +128,18 @@ Hook临界值(不设置的话会使用默认的计算缩放最小倍数和最大
         });
 
 
-#实现原理
+# 实现原理
 
 只加载显示的区域的图片，切成小块拼接.  
 
-#LargeImageView 
+# LargeImageView 
 根据滚动和缩放事件 scrollTo 对应的位置，计算当前显示区域的图片绘制出来
 
-#UpdateImageView
+# UpdateImageView
 监听View的显示区域的变化，然后加载显示区域内应该显示的图片区域，然后绘制到View上  
 UpdateView负责监听显示区域的变化的View，子类通过重写onUpdateWindow(Rect visiableRect)监听显示区域，大部分代码源于SurfaceView监听代码
 
-###BlockImageLoader负责加载显示区域的图片块。   ###
+### BlockImageLoader负责加载显示区域的图片块。   ###
 
 
 ###实现细节：  ###
@@ -185,7 +185,7 @@ LoadHandler的Loop是通过HandlerThread线程创建的Loop，也就是开个线
 onDraw又调用getDrawData加载，直至需要显示的图片块加载完成
 
 
-##主力类库##
+## 主力类库 ##
 
 **1.https://github.com/LuckyJayce/ViewPagerIndicator**  
 Indicator 取代 tabhost，实现网易顶部tab，新浪微博主页底部tab，引导页，无限轮播banner等效果，高度自定义tab和特效
