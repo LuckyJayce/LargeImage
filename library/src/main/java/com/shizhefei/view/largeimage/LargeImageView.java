@@ -37,6 +37,7 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
+import android.widget.OverScroller;
 
 import com.shizhefei.view.largeimage.factory.BitmapDecoderFactory;
 
@@ -49,7 +50,7 @@ import java.util.List;
 
 public class LargeImageView extends View implements BlockImageLoader.OnImageLoadListener, ILargeImageView {
     private final GestureDetector gestureDetector;
-    private final ScrollerCompat mScroller;
+    private final OverScroller mScroller;
     private final BlockImageLoader imageBlockImageLoader;
     private final int mMinimumVelocity;
     private final int mMaximumVelocity;
@@ -80,7 +81,7 @@ public class LargeImageView extends View implements BlockImageLoader.OnImageLoad
 
     public LargeImageView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        mScroller = ScrollerCompat.create(getContext(), null);
+        mScroller = new OverScroller(getContext());
         scaleHelper = new ScaleHelper();
         setFocusable(true);
         setWillNotDraw(false);
