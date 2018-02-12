@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 24
-    buildToolsVersion "24.0.0"
+    compileSdkVersion 26
+    buildToolsVersion "26.0.2"
 
     defaultConfig {
         applicationId "com.example.lagerimage_test"
         minSdkVersion 15
-        targetSdkVersion 24
+        targetSdkVersion 26
         versionCode 1
         versionName "1.0"
     }
@@ -32,7 +32,7 @@ dependencies {
     compile 'com.squareup.okhttp3:okhttp:3.4.2'
     compile 'com.github.HotBitmapGG:RingProgressBar:V1.2.2'
     compile project(':library')
-    compile 'com.android.support:recyclerview-v7:24.0.0'
+    compile 'com.android.support:recyclerview-v7:26.0.0'
 
     debugCompile 'com.squareup.leakcanary:leakcanary-android:1.5.1'
     releaseCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.5.1'
