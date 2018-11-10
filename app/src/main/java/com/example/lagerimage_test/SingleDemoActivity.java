@@ -37,12 +37,6 @@ public class SingleDemoActivity extends FragmentActivity {
             String fileName = getIntent().getStringExtra("file_name");
             InputStream inputStream = getAssets().open(fileName);
             largeImageView.setImage(new InputStreamBitmapDecoderFactory(inputStream));
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    largeImageView.setScale(0.5f);
-                }
-            });
         } catch (IOException e) {
             e.printStackTrace();
         }
