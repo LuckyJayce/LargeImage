@@ -3,12 +3,11 @@ apply plugin: 'com.novoda.bintray-release'//添加jcenter插件
 //apply from:'../z_publish.gradle'
 
 android {
-    compileSdkVersion 26
-    buildToolsVersion "26.0.2"
+    compileSdkVersion 28
 
     defaultConfig {
         minSdkVersion 11
-        targetSdkVersion 26
+        targetSdkVersion 28
         versionCode 10
         versionName "1.0.9"
     }
@@ -24,8 +23,8 @@ android {
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
-    provided 'com.android.support:support-v4:26.0.0'
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    compileOnly 'com.android.support:support-v4:28.0.0'
 }
 
 //添加
